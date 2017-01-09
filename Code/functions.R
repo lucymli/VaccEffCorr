@@ -1,11 +1,14 @@
 frailty_function <- function (p0, delta, N) {
+  if ((p0 < 0) | (p0 > 1)) stop("p0 must be between 0 and 1", call. = TRUE)
   num.fully.protected <- floor(p0*N)
-  susceptibility <- c(rep(0, num.fully.protected), 
-                      rgamma(N-num.fully.protected, 1/delta, 1/delta))
+  susceptibility <- rep(0, num.fully.protected)
+  if (num.fully.protected<N) {
+    susceptibility <- c(susceptibility, rgamma(N-num.fully.protected, 1/delta, 1/delta))
+  }
   return(susceptibility)
 }
 
-simulate.data <- function (
+simulate_data <- function (
   N, # even number of participants. Split between the two arms 50:50
   ntypes, # number of serotypes in the vaccine
   ntot, # total number of serotypes including those not in vaccines
@@ -18,7 +21,8 @@ simulate.data <- function (
   thetaIS, # relative rate of clearance (length=ntypes)
   frailtySI, # frailty parameter that determines individual-level heterogeneity in preventing acquisition
   frailtyIS, # frailty parameter that determines individual-level heterogeneity in clearance rates
-  interaction # rate at which the current  
+  interaction, # rate at which the current
+  noise # noisiness in antibody levels 
 ) {
   ### For testing within the function
   # load("simulate.data.test.RData")
@@ -38,7 +42,7 @@ simulate.data <- function (
   # require(ggplot2); ggplot(reshape2::melt(frailtyIS.mat)) + geom_tile(aes(x=Var2, y=max(Var1)-Var1+1, colour=value))
   ###
   # Simulate data for each patient
-  patient.data <- cbind(patient.data, do.call(rbind, lapply(1:N, function (patient_i) {
+  patient.data <- cbind(patient.data, do.call(rbind, mclapply(1:N, function (patient_i) {
     rates.matrix_i <- rates.matrix
     # Modify rates for vaccinated individuals
     if (patient.data$vacc[patient_i]) {
@@ -58,6 +62,61 @@ simulate.data <- function (
       P <- expm(rates.matrix_i*(times[time.step]-times[time.step-1]))
     }
     return (observations-1)
-  })))
+  }, mc.cores=detectCores())))
+  antibody.measurements <- t(sapply(rgamma(N/2, 1/frailtySI, 1/frailtySI), function (x) x+rnorm(ntypes, -1.5, noise)))
+  antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
+  colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
+  patient.data <- data.frame(patient.data, antibody.measurements)
   return(patient.data)
+}
+
+get_mean_positive <- function (dataset, ntypes) {
+  out.positive <- sapply(by(dataset[, -1:-2]>0, dataset$vacc, function (x) rowSums(x)/ncol(x)), mean)
+  out.positive.nv <- sapply(by(dataset[, -1:-2]>ntypes, dataset$vacc, function (x) rowSums(x)/ncol(x)), mean)
+  out.positive.v <- out.positive-out.positive.nv
+  out <- rbind(vtypes=out.positive.v, nvtypes=out.positive.nv)
+  colnames(out) <- sapply(colnames(out), ifelse, "vacc", "not.vacc")
+  return (out)
+}
+
+get_ts_positive <- function (dataset, ntypes) {
+  # mat should be TRUE/FALSE
+  ts.positive <- do.call(cbind, by(dataset[, -1:-2]>0, dataset$vacc, function (x) colSums(x)/nrow(x)))
+  ts.positive.nv <- do.call(cbind, by(dataset[, -1:-2]>ntypes, dataset$vacc, function (x) colSums(x)/nrow(x)))
+  ts.positive.v <- ts.positive-ts.positive.nv
+  out <- rbind(data.frame(time=1:nrow(ts.positive.v), serotype="v", ts.positive.v),
+        data.frame(time=1:nrow(ts.positive.nv), serotype="nv", ts.positive.nv))
+  out <- reshape2::melt(out, id.vars=c("time", "serotype"), variable.name="vacc", value.name="mean.positive")
+  out$vacc <- as.logical(gsub(".", "", out$vacc, fixed=TRUE))
+  return (out)
+}
+
+summarize_data <- function (dataset, ntypes, include.graphics=TRUE) {
+  mean.positive <- get_mean_positive(dataset, ntypes)
+  ts.positive <- get_ts_positive(dataset, ntypes)
+  if(include.graphics) {
+    require(ggplot2)
+    P <- ggplot(ts.positive) + theme_bw() +
+      geom_line(aes(x=time, y=mean.positive, colour=serotype)) + 
+      ylab(expression(paste("Proportion carrying ", italic("S. pneumoniae")))) +
+      xlab("Swab #") +
+      scale_colour_manual("Serotype", values=c("#d4006f", "#4a3d6b"), labels=c("Vaccine", "Non-vaccine")) +
+      facet_grid(.~vacc, labeller=as_labeller(c(`TRUE`="Vaccinated", `FALSE`="Not Vaccinated")))
+  }
+  return (list(mean.num.samples=mean.positive, timeseries=ts.positive, plot=P))
+}
+
+get_agr_SI <- function (lambda, thetaSI) {
+  theta.SI.agr <- sum(lambda*thetaSI)/sum(lambda)
+  return (theta.SI.agr)
+}
+
+get_agr_IS <- function (lambda, mu, thetaSI, thetaIS, ntypes) {
+  ntot <- length(lambda)
+  B <- thetaSI*lambda[1:ntypes]/(thetaSI*lambda[1:ntypes]+mu[1:ntypes])
+  A <- thetaIS*mu[1:ntypes]*B
+  D <- lambda[(ntypes+1):ntot]/(lambda[(ntypes+1):ntot]+mu[(ntypes+1):ntot])
+  E <- mu[(ntypes+1):ntot]*D
+  theta.IS.agr <- sum(A)/sum(B) * sum(D)/sum(E)
+  return (theta.IS.agr)
 }
