@@ -22,7 +22,7 @@ simulate_data <- function (
   frailtySI, # frailty parameter that determines individual-level heterogeneity in preventing acquisition
   frailtyIS, # frailty parameter that determines individual-level heterogeneity in clearance rates
   interaction, # rate at which the current
-  noise # noisiness in antibody levels 
+  ab.noise # noisiness in antibody levels 
 ) {
   ### For testing within the function
   # load("simulate.data.test.RData")
@@ -63,7 +63,9 @@ simulate_data <- function (
     }
     return (observations-1)
   }, mc.cores=detectCores())))
-  antibody.measurements <- t(sapply(rgamma(N/2, 1/frailtySI, 1/frailtySI), function (x) x+rnorm(ntypes, -1.5, noise)))
+  antibody.measurements <- t(sapply(rgamma(N/2, 1/frailtySI, 1/frailtySI), function (x) {
+    x+rnorm(ntypes, -1.5, ab.noise)
+  }))
   antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
   colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
   patient.data <- data.frame(patient.data, antibody.measurements)
