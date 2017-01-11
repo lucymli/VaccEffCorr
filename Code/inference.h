@@ -3,10 +3,10 @@
 #include <string>
 
 class Data {
-  NumericMatrix swab_data_v; // nrow=total number of vaccinated, ncol=swabs
-  NumericMatrix swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
-  NumericVector swab_times; // timing of swabs
-  NumericMatrix ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
+  Rcpp::NumericMatrix swab_data_v; // nrow=total number of vaccinated, ncol=swabs
+  Rcpp::NumericMatrix swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
+  Rcpp::NumericVector swab_times; // timing of swabs
+  Rcpp::NumericMatrix ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
   int n_vacc;
   int n_nvacc;
   int n_swabs;
@@ -14,10 +14,10 @@ class Data {
   int n_nvtypes;
   int n_tot;
 public:
-  Data (List, NumericVector, int, int);
+  Data (Rcpp::List, Rcpp::NumericVector, int, int);
 };
 
-Data::Data(List input_data, NumericVector timings, int vtypes, int nvtypes) {
+Data::Data(Rcpp::List input_data, Rcpp::NumericVector timings, int vtypes, int nvtypes) {
   swab_times = timings;
   n_vtypes = vtypes;
   n_nvtypes = nvtypes;
@@ -28,44 +28,53 @@ Data::Data(List input_data, NumericVector timings, int vtypes, int nvtypes) {
 }
 
 class Param {
-  NumericVector tempparam;
-  NumericVector lambda;
-  NumericVector mu;
-  NumericVector thetaSI;
-  NumericVector thetaIS;
-  NumericVector p0;
+  int n_vtypes;
+  int n_nvtypes;
+  int n_tot;
+  Rcpp::NumericVector tempparam;
+  Rcpp::NumericVector lambda;
+  Rcpp::NumericVector mu;
+  Rcpp::NumericVector thetaSI;
+  Rcpp::NumericVector thetaIS;
+  Rcpp::NumericVector p0;
   double frailtySI;
   double frailtyIS;
   double interaction;
   int nblocks;
   int block_ptr;
-  NumericVector acceptance;
+  Rcpp::NumericVector acceptance;
+  Rcpp::NumericVector variance;
   double llik;
   double lprior;
 public:
-  Param (List);
+  Param (Rcpp::List);
   void next_block ();
   double calc_llik (Data);
   double calc_lprior ();
+  double uni_propose (double, double, int) const;
   void propose ();
-  void mcmc_move ();
+  void mcmc_move (Data);
 };
 
-Param::Param (List input) {
-  tempparam = NumericVector(1);
-  lambda = NumericVector(input["lambda"]);
-  mu = NumericVector(input["mu"]);
-  thetaSI = NumericVector(input["thetaSI"]);
-  thetaIS = NumericVector(input["thetaIS"]);
-  p0 = NumericVector(input["p0"]);
+Param::Param (Rcpp::List input) {
+  n_vtypes = input["ntypes"];
+  n_tot = input["ntot"];
+  n_nvtypes = n_tot-n_vtypes;
+  tempparam = Rcpp::NumericVector(1);
+  lambda = Rcpp::NumericVector(input["lambda"]);
+  mu = Rcpp::NumericVector(input["mu"]);
+  thetaSI = Rcpp::NumericVector(input["thetaSI"]);
+  thetaIS = Rcpp::NumericVector(input["thetaIS"]);
+  p0 = Rcpp::NumericVector(input["p0"]);
   frailtySI = input["frailtySI"];
   frailtyIS = input["frailtyIS"];
   interaction = input["interaction"];
   nblocks = 8;
   block_ptr = 0;
-  acceptance = NumericVector(nblocks);
+  acceptance = Rcpp::NumericVector(nblocks);
+  variance = input["variances"];
   llik = 0.0;
-  lprior = NumericVector(lprior);
+  lprior = Rcpp::NumericVector(lprior);
 }
 
 void Param::next_block() {
@@ -83,12 +92,76 @@ double Param::calc_lprior () {
   return (newlprior);
 }
 
+double Param::uni_propose (double oldval, double var, int ntries) const {
+  double newval = R::rnorm(oldval, var);
+  while (newval < 0) {
+    newval = R::rnorm(oldval, var);
+    ntries--;
+    if (ntries < 0) break;
+  }
+  return (newval);
+}
+
 void Param::propose () {
-  
+  int ntries = 10;
+  switch (block_ptr) {
+    case 1: {
+      tempparam = lambda;
+      for (int i=0; i<n_tot; i++) {
+        lambda[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+      }
+    }
+    case 2: {
+      tempparam = mu;
+      for (int i=0; i<n_tot; i++) {
+        for (int i=0; i<n_tot; i++) {
+          mu[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+        }
+      }
+    }
+    case 3: {
+      tempparam = thetaSI;
+      for (int i=0; i<n_vtypes; i++) {
+        for (int i=0; i<n_tot; i++) {
+          thetaSI[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+        }
+      }
+    }
+    case 4: {
+      tempparam = thetaIS;
+      for (int i=0; i<n_vtypes; i++) {
+        for (int i=0; i<n_tot; i++) {
+          thetaIS[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+        }
+      }
+    }
+    case 5: {
+      tempparam = p0;
+      for (int i=0; i<n_vtypes; i++) {
+        for (int i=0; i<n_tot; i++) {
+          p0[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+        }
+      }
+    }
+    case 6: {
+      tempparam[0] = frailtySI;
+      frailtySI = uni_propose(tempparam[0], variance[block_ptr], ntries);
+    }
+    case 7: {
+      tempparam[0] = frailtyIS;
+      frailtyIS = uni_propose(tempparam[0], variance[block_ptr], ntries);
+    }
+    case 8: {
+      tempparam[0] = interaction;
+      interaction = uni_propose(tempparam[0], variance[block_ptr], ntries);
+    }
+  }
 }
 
 void Param::mcmc_move (Data data) {
   // Code to propose
+  propose();
   double newllik = calc_llik(data);
   double newlprior = calc_lprior();
+  next_block();
 }
