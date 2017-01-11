@@ -52,8 +52,9 @@ public:
   double calc_llik (Data);
   double calc_lprior ();
   double uni_propose (double, double, int) const;
-  void propose ();
+  void alter_param (bool);
   void mcmc_move (Data);
+  void print_params (double *) const;
 };
 
 Param::Param (Rcpp::List input) {
@@ -102,16 +103,18 @@ double Param::uni_propose (double oldval, double var, int ntries) const {
   return (newval);
 }
 
-void Param::propose () {
+void Param::alter_param (bool reject) {
   int ntries = 10;
   switch (block_ptr) {
     case 1: {
+      if (reject) lambda = tempparam; return;
       tempparam = lambda;
       for (int i=0; i<n_tot; i++) {
         lambda[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
       }
     }
     case 2: {
+      if (reject) mu = tempparam; return;
       tempparam = mu;
       for (int i=0; i<n_tot; i++) {
         for (int i=0; i<n_tot; i++) {
@@ -120,6 +123,7 @@ void Param::propose () {
       }
     }
     case 3: {
+      if (reject) thetaSI = tempparam; return;
       tempparam = thetaSI;
       for (int i=0; i<n_vtypes; i++) {
         for (int i=0; i<n_tot; i++) {
@@ -128,6 +132,7 @@ void Param::propose () {
       }
     }
     case 4: {
+      if (reject) thetaIS = tempparam; return;
       tempparam = thetaIS;
       for (int i=0; i<n_vtypes; i++) {
         for (int i=0; i<n_tot; i++) {
@@ -136,6 +141,7 @@ void Param::propose () {
       }
     }
     case 5: {
+      if (reject) p0 = tempparam; return;
       tempparam = p0;
       for (int i=0; i<n_vtypes; i++) {
         for (int i=0; i<n_tot; i++) {
@@ -144,14 +150,17 @@ void Param::propose () {
       }
     }
     case 6: {
+      if (reject) frailtySI = tempparam[0]; return;
       tempparam[0] = frailtySI;
       frailtySI = uni_propose(tempparam[0], variance[block_ptr], ntries);
     }
     case 7: {
+      if (reject) frailtyIS = tempparam[0]; return;
       tempparam[0] = frailtyIS;
       frailtyIS = uni_propose(tempparam[0], variance[block_ptr], ntries);
     }
     case 8: {
+      if (reject) interaction = tempparam[0]; return;
       tempparam[0] = interaction;
       interaction = uni_propose(tempparam[0], variance[block_ptr], ntries);
     }
@@ -160,8 +169,14 @@ void Param::propose () {
 
 void Param::mcmc_move (Data data) {
   // Code to propose
-  propose();
+  alter_param (false);
   double newllik = calc_llik(data);
   double newlprior = calc_lprior();
+  double z = log(R::unif_rand());
+  if (z > (newllik+newlprior-llik-lprior)) alter_param (true);
   next_block();
+}
+
+
+void Param::print_params (double * output) const {
 }
