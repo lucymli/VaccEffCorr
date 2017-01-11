@@ -66,10 +66,11 @@ simulate_data <- function (
   antibody.measurements <- t(sapply(rgamma(N/2, 1/frailtySI, 1/frailtySI), function (x) {
     x+rnorm(ntypes, -1.5, ab.noise)
   }))
-  antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
+  # antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
   colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
-  patient.data <- data.frame(patient.data, antibody.measurements)
-  return(patient.data)
+  # patient.data <- data.frame(patient.data, antibody.measurements)
+  return(list(vdata=patient.data[patient.data$vacc, ], nvdata=patient.data[!patient.data$vacc, ],
+              abdata=antibody.measurements))
 }
 
 get_mean_positive <- function (dataset, ntypes) {

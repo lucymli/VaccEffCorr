@@ -8,8 +8,8 @@ sim.params <- list(N=1000, ntypes=13, ntot=20, nswabs=5, times=c(365/12, 6*365/1
      p0=c(0.16, 0.3, 0.141, 0.16, 0.175, 0.287, 0.135, 0.178, 0.308, 0.217, 0.319, 0.322, 0.219)*2.5,
      thetaSI=c(0.632, 0.476, 0.518, 0.617, 0.496, 0.53, 0.54, 0.682, 0.602, 0.639, 0.555, 0.618, 0.507),
      thetaIS=1/c(0.854, 1, 0.723, 0.919, 0.859, 1, 1, 0.891, 1, 0.911, 1, 0.918, 0.84),
-     frailtySI=0.2, frailtyIS=0.2, interaction=0.4,
-     ab.noise=runif(ntypes, 0.2, 0.6))
+     frailtySI=0.2, frailtyIS=0.2, interaction=0.4)
+sim.params$ab.noise <- runif(sim.params$ntypes, 0.2, 0.6)
 
 theta.SI.agr <- with(sim.params, get_agr_SI(lambda[1:ntypes], thetaSI))
 theta.IS.agr <- with(sim.params, get_agr_IS(lambda, mu, thetaSI, thetaIS, ntypes))
@@ -24,4 +24,4 @@ theta.IS.agr <- with(sim.params, get_agr_IS(lambda, mu, thetaSI, thetaIS, ntypes
 set.seed(1000)
 sim.data <- do.call(simulate_data, sim.params)
 #save(sim.data, file="sim.data.RData")
-cor(sim.data[sim.data$vacc, -1:-7])
+cor(sim.data$ab.data)
