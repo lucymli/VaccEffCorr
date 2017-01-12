@@ -1,7 +1,4 @@
-#include <Rcpp.h>
 #include <RcppArmadillo.h>
-#include <vector>
-#include <string>
 #include <stdio.h>      /* printf */
 #include <math.h>       /* log */
 #include <iostream>
@@ -24,12 +21,16 @@ public:
   Data (std::vector<double>, std::vector<double>, std::vector<double>,
         std::vector <double>, int, int);
   int operator[] (std::string) const;
+  double get_swab_time (int);
+  double get_swab_v (int, int);
+  double get_swab_nv (int, int);
 };
 
 
 Data::Data (std::vector<double> vdata, std::vector<double>nvdata, std::vector<double>ab_data,
             std::vector <double>timings, int vtypes, int nvtypes) {
-  swab_times = timings;
+  for (int i=1; i<timings.end()-timings.begin(); i++) swab_times[i] = timings[i]-timings[i-1];
+  swab_times[0] = timings[0];
   n_vtypes = vtypes;
   n_nvtypes = nvtypes;
   n_tot = n_vtypes + n_nvtypes;
@@ -45,6 +46,17 @@ int Data::operator[] (std::string name) const {
   else if (name=="n_vtypes") return (n_vtypes);
   else if (name=="n_nvtypes") return (n_nvtypes);
   else return(n_tot);
+}
+
+double Data::get_swab_time (int time) {
+  return (swab_times[time]);
+}
+
+double Data::get_swab_v (int ind_i, int swab_i) {
+  return (swab_data_v[swab_i*n_vacc+ind_i]);
+}
+double Data::get_swab_nv (int ind_i, int swab_i) {
+  return (swab_data_nv[swab_i*n_nvacc+ind_i]);
 }
 
 class Param {
@@ -68,10 +80,10 @@ public:
   // a new parameter is proposed or rejected, if the parameter affects the transition
   // rates. currently include lambda, mu, and interaction between serotypes
   void next_block ();
-  void calc_stationary_prev(bool, int);
+  void calc_expm(bool, int, arma::mat &, double);
   void get_rand_frailty (int num);
   void initial_calc(Data);
-  double calc_llik (Data) const;
+  double calc_llik (Data);
   double calc_lprior (int) const;
   double calc_lprior () const;
   double uni_propose (double, double, int) const;
@@ -141,21 +153,51 @@ void Param::next_block() {
   if (block_ptr >= n_blocks) block_ptr = 0;
 }
 
-void Param::calc_stationary_prev(bool vacc, int ind) {
+void Param::calc_expm(bool vacc, int ind, arma::mat& matrix_to_change, double multiplier) {
   double tot_rate = 0.0;
   for (int i=0; i<n_tot; i++) {
-    stationary_prev(0, i+1) = transitions(0, i+1)*50000.0;
-    if (vacc) stationary_prev(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind];
-    tot_rate += stationary_prev(0, i+1);
+    matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
+    if (vacc) {
+      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind];
+      matrix_to_change(i+1, 0) *= thetaIS[i]*ind_frailty_IS[ind];
+    }
+    tot_rate += matrix_to_change(0, i+1);
+  }
+  matrix_to_change(0, 0) = -tot_rate;
+  for (int row_i=1; row_i<=n_tot; row_i++) {
+    tot_rate = matrix_to_change(row_i, 0);
+    for (int col_i=1; col_i<=n_tot; col_i++) {
+      if (row_i!=col_i) {
+        matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier*interaction;
+        if (vacc) {
+          matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*ind_frailty_SI[ind];
+        }
+      }
+    }
+    matrix_to_change(row_i, row_i) = -tot_rate;
   }
 }
 
-double Param::calc_llik (Data data) const {
+double Param::calc_llik (Data data) {
   double newllik = 0.0;
   for (int i=0; i<data["n_vacc"]; i++) {
-    transitions*thetaSI*ind_frailty_SI[i]
+    // calculate the probability of first swab results, i.e. at stationarity
+    calc_expm(true, i, stationary_prev, 50000.0);
+    newllik += log(stationary_prev(0, (int)data.get_swab_v(i, 0)));
+    for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
+      calc_expm(true, i, transitions_t, data.get_swab_time(time_step));
+      newllik += log(transitions_t(data.get_swab_v(i,time_step-1),data.get_swab_v(i,time_step)));
+    }
   }
-  newllik += calc_llik(data, 0);
+  for (int i=0; i<data["n_nvacc"]; i++) {
+    // calculate the probability of first swab results, i.e. at stationarity
+    calc_expm(true, i, stationary_prev, 50000.0);
+    newllik += log(stationary_prev(0, (int)data.get_swab_nv(i, 0)));
+    for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
+      calc_expm(true, i, transitions_t, data.get_swab_time(time_step));
+      newllik += log(transitions_t(data.get_swab_nv(i,time_step-1),data.get_swab_nv(i,time_step)));
+    }
+  }
   return (newllik);
 }
 
@@ -354,27 +396,33 @@ bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_
 }
 
 // [[Rcpp::export]]
-arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt,
-                   std::vector <double> params, // vector of parameters
-                   std::vector <double> params_sd, // vector of variances for proposal distribution
-                   std::vector <double> swab_data_v, // nrow=total number of vaccinated, ncol=swabs
-                   std::vector <double> swab_data_nv, // nrow=total number of un-accinated, ncol=swabs
-                   std::vector <double> ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-                   std::vector <double> swab_times, // timing of swabs
-                   std::vector <double> mcmc_options, // options for MCMC algorithm
-                   std::string filename // filename for output
-                   ) {
-  int total_params = params.size();
-  Param parameters (n_vt, n_vt+n_nvt, params, params_sd);
-  Data dataset (swab_data_v, swab_data_nv, ab_data, swab_times, n_vt, n_nvt);
-  std::vector <double> results (params.size());
-  int n_param_blocks = params_sd.size();
-  int niter = mcmc_options[0];
-  arma::mat results_mat (niter, params.size()+4);
-  int sample_every = mcmc_options[1];
-  double optimal = mcmc_options[2];
-  int adapt_every = mcmc_options[3];
-  int adapt_until = mcmc_options[4];
+arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
+               SEXP params, // vector of parameters
+               SEXP params_sd, // vector of variances for proposal distribution
+               SEXP swab_data_v, // nrow=total number of vaccinated, ncol=swabs
+               SEXP swab_data_nv, // nrow=total number of un-accinated, ncol=swabs
+               SEXP ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
+               SEXP swab_times, // timing of swabs
+               SEXP mcmc_options, // options for MCMC algorithm
+               SEXP filename_sexp // filename for output
+                 ) {
+  std::vector <double> params_vec = Rcpp::as<std::vector<double> >(params);
+  std::vector <double> params_sd_vec = Rcpp::as<std::vector<double> >(params_sd);
+  std::vector <double> mcmc_options_vec = Rcpp::as<std::vector<double> >(mcmc_options);
+  std::string filename = Rcpp::as<std::string>(filename_sexp);
+  Param parameters (n_vt, n_vt+n_nvt, params_vec, Rcpp::as<std::vector<double> >(params_sd));
+  Data dataset (Rcpp::as<std::vector<double> >(swab_data_v), 
+                Rcpp::as<std::vector<double> >(swab_data_nv),
+                Rcpp::as<std::vector<double> >(ab_data),
+                Rcpp::as<std::vector<double> >(swab_times), n_vt, n_nvt);
+  std::vector <double> results (params_vec.size());
+  int n_param_blocks = params_sd_vec.size();
+  int niter = mcmc_options_vec[0];
+  arma::mat results_mat (niter, params_vec.size()+4);
+  int sample_every = mcmc_options_vec[1];
+  double optimal = mcmc_options_vec[2];
+  int adapt_every = mcmc_options_vec[3];
+  int adapt_until = mcmc_options_vec[4];
   parameters.initialize_file(filename);
   // Calculate likelihood and prior of initial parameters
   parameters.initial_calc(dataset);
@@ -398,11 +446,13 @@ arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt,
 //
 
 /*** R
-load(sim.data.RData)
-mcmc.options <- c(niter=1000, sample_every=10, adapt_optimal=0.23, adapt_every=5, 
+load("sim.data.RData")
+mcmc_options <- c(niter=1000, sample_every=10, adapt_optimal=0.23, adapt_every=5, 
                   adapt_until=10)
 mcmc.out <- mcmc(sim.params$N/2, sim.params$N/2, sim.params$ntypes, 
-                 sim.params$ntot-sim.params$ntypes, sim.params.vec, sim.params.sd,
-                 sim.data$vdata, sim.data$nvdata, sim.data$abdata, sim.params$times,
+                 sim.params$ntot-sim.params$ntypes, length(sim.params.vec), 
+                 unname(sim.params.vec), unname(sim.params.sd),
+                 unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
+                 unlist(sim.data$abdata), sim.params$times,
                  mcmc_options, "test.txt")
 */
