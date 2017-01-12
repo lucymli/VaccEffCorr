@@ -1,17 +1,16 @@
-#include "inference.h"
+#include "Data.h"
+#include "Param.h"
 using namespace Rcpp;
 
 
 
 // [[Rcpp::export]]
-NumericVector mcmc(NumericMatrix vt_parameters, // matrix of parameters specific to each serotype in the vaccine
-                   NumericMatrix nvt_parameters, // matrix of parameters specific to each serotype not in the vaccine
-                   NumericVector params, // other parameters not specific to serotypes
-                   NumericMatrix swab_data_v, // nrow=total number of vaccinated, ncol=swabs
-                   NumericMatrix swab_data_nv, // nrow=total number of vaccinated, ncol=swabs
-                   NumericVector swab_times, // timing of swabs
-                   NumericMatrix ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-                   List mcmc_options // options for MCMC algorithm
+NumericVector mcmc(std::vector <double> params, // vector of parameters
+                   std::vector <double> swab_data_v, // nrow=total number of vaccinated, ncol=swabs
+                   std::vector <double> swab_data_nv, // nrow=total number of vaccinated, ncol=swabs
+                   std::vector <double> swab_times, // timing of swabs
+                   std::vector <double> ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
+                   std::vector <double> mcmc_options // options for MCMC algorithm
                    ) {
   int ntypes = vt_parameters.ncol();
   int ntot = nvt_parameters.ncol() + ntypes;
