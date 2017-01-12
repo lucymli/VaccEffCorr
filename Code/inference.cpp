@@ -1,25 +1,76 @@
 #include <Rcpp.h>
 #include <RcppArmadillo.h>
+#include <vector>
 #include <string>
 #include <stdio.h>      /* printf */
 #include <math.h>       /* log */
+#include <iostream>
+#include <fstream>
+// [[Rcpp::depends(RcppArmadillo)]]
 using namespace Rcpp;
+
+class Data {
+  std::vector <double> swab_data_v; // nrow=total number of vaccinated, ncol=swabs
+  std::vector <double> swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
+  std::vector <double> swab_times; // timing of swabs
+  std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
+  int n_vacc;
+  int n_nvacc;
+  int n_swabs;
+  int n_vtypes;
+  int n_nvtypes;
+  int n_tot;
+public:
+  Data (std::vector<double>, std::vector<double>, std::vector<double>,
+        std::vector <double>, int, int);
+  int operator[] (std::string) const;
+};
+
+
+Data::Data (std::vector<double> vdata, std::vector<double>nvdata, std::vector<double>ab_data,
+            std::vector <double>timings, int vtypes, int nvtypes) {
+  swab_times = timings;
+  n_vtypes = vtypes;
+  n_nvtypes = nvtypes;
+  n_tot = n_vtypes + n_nvtypes;
+  swab_data_v = vdata;
+  swab_data_nv = nvdata;
+  ab_data = ab_data;
+}
+
+int Data::operator[] (std::string name) const {
+  if (name=="n_vacc") return (n_vacc);
+  else if (name=="n_nvacc") return (n_nvacc);
+  else if (name=="n_swabs") return (n_swabs);
+  else if (name=="n_vtypes") return (n_vtypes);
+  else if (name=="n_nvtypes") return (n_nvtypes);
+  else return(n_tot);
+}
 
 class Param {
   int n_vtypes, n_nvtypes, n_tot, n_blocks, block_ptr; // counts
   std::vector <double> tempparam, lambda, mu; // parameter vectors
   std::vector <double> thetaSI, thetaIS, p0;
   double frailtySI, frailtyIS, interaction; // non-serotype-specific parameters
-  std::vector <double> accepted, rejected, variance; // mcmc vectors
+  std::vector <double> accepted, rejected, proposal_sd; // mcmc vectors
   double llik; // overall log likelihood
   std::vector <double> llik_vec; // log likelihood for each block
   double lprior; // overall prior
   std::vector <double> lprior_vec; // prior for each block
   arma::mat transitions;
+  arma::mat stationary_prev;
+  arma::mat transitions_t;
+  std::vector <double> ind_frailty_SI;
+  std::vector <double> ind_frailty_IS;
 public:
   Param (int, int, std::vector<double>, std::vector<double>);
+  void update_transitions(); // transition rates matrix should be altered every time
+  // a new parameter is proposed or rejected, if the parameter affects the transition
+  // rates. currently include lambda, mu, and interaction between serotypes
   void next_block ();
-  double calc_llik (Data, int) const;
+  void calc_stationary_prev(bool, int);
+  void get_rand_frailty (int num);
+  void initial_calc(Data);
   double calc_llik (Data) const;
   double calc_lprior (int) const;
   double calc_lprior () const;
@@ -27,11 +78,13 @@ public:
   void alter_param (bool);
   void mcmc_move (Data, bool, double);
   double operator [] (int);
-  void print_params (std::vector <double> &);
+  void initialize_file(std::string);
+  void print_to_file(std::string, int, arma::mat &);
 };
 
 
-Param::Param (int ntypes, int ntot, std::vector <double> inputs, std::vector <double> input_var) {
+Param::Param (int ntypes, int ntot, std::vector <double> inputs,
+              std::vector <double> input_var) {
   n_vtypes = ntypes;
   n_tot = ntot;
   n_nvtypes = n_tot-n_vtypes;
@@ -54,10 +107,33 @@ Param::Param (int ntypes, int ntot, std::vector <double> inputs, std::vector <do
   block_ptr = 0;
   accepted = std::vector <double>(n_blocks);
   rejected = std::vector <double>(n_blocks);
-  variance = input_var;
+  proposal_sd = input_var;
   llik = 0.0;
   lprior = 0.0;
-  arma::mat;
+  transitions = arma::zeros(n_tot+1, n_tot+1);
+  stationary_prev = arma::zeros(n_tot+1, n_tot+1);
+  transitions_t = arma::zeros(n_tot+1, n_tot+1);
+  update_transitions();
+}
+void Param::update_transitions () {
+  double tot_rate = 0.0;
+  for (int i=1; i<=n_tot; i++) {
+    transitions(i) = mu[i-1];
+    transitions(0, i) = lambda[i-1];
+    tot_rate += transitions(0, i);
+  }
+  transitions(0) = -tot_rate;
+  for (int row_i=1; row_i<=n_tot; row_i++) {
+    tot_rate = transitions(row_i);
+    for (int col_i=1; col_i<=n_tot; col_i++) {
+      if (row_i!=col_i) {
+        transitions(row_i, col_i) = lambda[col_i-1]*interaction;
+        tot_rate += transitions(row_i, col_i);
+      }
+    }
+    transitions(row_i, row_i) = -tot_rate;
+  }
+  stationary_prev = arma::expmat(transitions*50000); // stationary prevalence
 }
 
 void Param::next_block() {
@@ -65,13 +141,20 @@ void Param::next_block() {
   if (block_ptr >= n_blocks) block_ptr = 0;
 }
 
-double Param::calc_llik (Data data, int lik_type) {
-  double newllik = 0.0;
-  return (newllik);
+void Param::calc_stationary_prev(bool vacc, int ind) {
+  double tot_rate = 0.0;
+  for (int i=0; i<n_tot; i++) {
+    stationary_prev(0, i+1) = transitions(0, i+1)*50000.0;
+    if (vacc) stationary_prev(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind];
+    tot_rate += stationary_prev(0, i+1);
+  }
 }
 
 double Param::calc_llik (Data data) const {
   double newllik = 0.0;
+  for (int i=0; i<data["n_vacc"]; i++) {
+    transitions*thetaSI*ind_frailty_SI[i]
+  }
   newllik += calc_llik(data, 0);
   return (newllik);
 }
@@ -112,62 +195,78 @@ double Param::uni_propose (double oldval, double var, int ntries) const {
 void Param::alter_param (bool reject) {
   int ntries = 10;
   switch (block_ptr) {
-  case 1: {
-    if (reject) lambda = tempparam; return;
-    tempparam = lambda;
-    for (int i=0; i<n_tot; i++) {
-      lambda[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+    case 1: {
+      if (reject) {
+        lambda = tempparam;
+        update_transitions();
+        return;
+      }
+      tempparam = lambda;
+      for (int i=0; i<n_tot; i++) {
+        lambda[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+      }
+      update_transitions();
     }
-  }
-  case 2: {
-    if (reject) mu = tempparam; return;
-    tempparam = mu;
-    for (int i=0; i<n_tot; i++) {
-      mu[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+    case 2: {
+      if (reject) {
+        mu = tempparam;
+        update_transitions();
+        return;
+      }
+      tempparam = mu;
+      for (int i=0; i<n_tot; i++) {
+        mu[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+      }
+      update_transitions();
     }
-  }
-  case 3: {
-    if (reject) thetaSI = tempparam; return;
-    tempparam = thetaSI;
-    for (int i=0; i<n_vtypes; i++) {
-      thetaSI[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+    case 3: {
+      if (reject) thetaSI = tempparam; return;
+      tempparam = thetaSI;
+      for (int i=0; i<n_vtypes; i++) {
+        thetaSI[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+      }
     }
-  }
-  case 4: {
-    if (reject) thetaIS = tempparam; return;
-    tempparam = thetaIS;
-    for (int i=0; i<n_vtypes; i++) {
-      thetaIS[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+    case 4: {
+      if (reject) thetaIS = tempparam; return;
+      tempparam = thetaIS;
+      for (int i=0; i<n_vtypes; i++) {
+        thetaIS[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+      }
     }
-  }
-  case 5: {
-    if (reject) p0 = tempparam; return;
-    tempparam = p0;
-    for (int i=0; i<n_vtypes; i++) {
-      p0[i] = uni_propose(tempparam[i], variance[block_ptr], ntries);
+    case 5: {
+      if (reject) p0 = tempparam; return;
+      tempparam = p0;
+      for (int i=0; i<n_vtypes; i++) {
+        p0[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+      }
     }
-  }
-  case 6: {
-    if (reject) frailtySI = tempparam[0]; return;
-    tempparam[0] = frailtySI;
-    frailtySI = uni_propose(tempparam[0], variance[block_ptr], ntries);
-  }
-  case 7: {
-    if (reject) frailtyIS = tempparam[0]; return;
-    tempparam[0] = frailtyIS;
-    frailtyIS = uni_propose(tempparam[0], variance[block_ptr], ntries);
-  }
-  case 8: {
-    if (reject) interaction = tempparam[0]; return;
-    tempparam[0] = interaction;
-    interaction = uni_propose(tempparam[0], variance[block_ptr], ntries);
-  }
+    case 6: {
+      if (reject) frailtySI = tempparam[0]; return;
+      tempparam[0] = frailtySI;
+      frailtySI = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+    }
+    case 7: {
+      if (reject) frailtyIS = tempparam[0]; return;
+      tempparam[0] = frailtyIS;
+      frailtyIS = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+    }
+    case 8: {
+      if (reject) {
+        interaction = tempparam[0];
+        update_transitions();
+        return;
+      }
+      tempparam[0] = interaction;
+      interaction = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+      update_transitions();
+    }
   }
 }
 
 void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
   // Code to propose
   alter_param (false);
+  get_rand_frailty(data["n_vacc"]);
   double newllik = calc_llik(data);
   double newlprior = calc_lprior();
   double z = R::unif_rand();
@@ -177,10 +276,12 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
     rejected[block_ptr]++;
   } else {
     accepted[block_ptr]++;
+    llik = newllik;
+    lprior = newlprior;
   }
   if (adapt) {
-    double change = exp(0.999/2.0*(pow(variance[block_ptr], 0.5)-optimal_adapt));
-    variance[block_ptr] *= change*change;
+    double change = exp(0.999/2.0*(proposal_sd[block_ptr]-optimal_adapt));
+    proposal_sd[block_ptr] *= change;
     std::fill(accepted.begin(), accepted.end(), 0.0);
     std::fill(rejected.begin(), rejected.end(), 0.0);
   }
@@ -201,82 +302,89 @@ double Param::operator[](int i) {
   return (value);
 }
 
-void Param::print_params (std::vector <double> & output) {
-  for (int i=0; i<(n_tot*2+n_vtypes*3+3); i++) {
-    output[i] = (*this)[i];
+void Param::get_rand_frailty (int num) {
+  ind_frailty_SI.clear();
+  ind_frailty_IS.clear();
+  for (int i=0; i<num; i++) {
+    ind_frailty_SI.push_back(R::rgamma(1.0/frailtySI, frailtySI));
+    ind_frailty_IS.push_back(R::rgamma(1.0/frailtyIS, frailtyIS));
   }
 }
 
+void Param::initial_calc(Data data) {
+  get_rand_frailty(data["n_vacc"]);
+  llik = calc_llik(data);
+  lprior = calc_lprior();
+}
 
-class Data {
-  std::vector <double> swab_data_v; // nrow=total number of vaccinated, ncol=swabs
-  std::vector <double> swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
-  std::vector <double> swab_times; // timing of swabs
-  std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-  int n_vacc;
-  int n_nvacc;
-  int n_swabs;
-  int n_vtypes;
-  int n_nvtypes;
-  int n_tot;
-public:
-  Data (std::vector<double>, std::vector<double>, std::vector<double>,
-        std::vector <double>, int, int);
-};
+void Param::initialize_file (std::string filename) {
+  std::ofstream output_file;
+  output_file.open(filename);
+  output_file << "state\tposterior\tlikelihood\tprior";
+  for (int i=0; i<n_tot; i++) output_file << "\tlambda" << i;
+  for (int i=0; i<n_tot; i++) output_file << "\tmu" << i;
+  for (int i=0; i<n_vtypes; i++) output_file << "\tthetaSI" << i;
+  for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
+  for (int i=0; i<n_vtypes; i++) output_file << "\tp0" << i;
+  output_file <<"\tfrailtySI\tfrailtyIS\tinteraction" << std::endl;
+  output_file.close();
+}
 
+void Param::print_to_file (std::string filename, int iter, arma::mat &results_mat) {
+  results_mat(iter, 0) = 0;
+  results_mat(iter, 1) = llik+lprior;
+  results_mat(iter, 2) = llik;
+  results_mat(iter, 3) = lprior;
+  std::ofstream output_file;
+  output_file.open(filename, std::ofstream::app);
+  output_file << iter << "\t" << llik+lprior << "\t" << llik << "\t" << lprior;
+  for (int i=0; i<(n_tot*2+n_vtypes*3+3); i++) {
+    output_file << "\t" << (*this)[i];
+    results_mat(0, i+3) = (*this)[i];
+    
+  }
+  output_file << std::endl;
+  output_file.close();
+}
 
-Data::Data (std::vector<double> vdata, std::vector<double>nvdata, std::vector<double>ab_data,
-            std::vector <double>timings, int vtypes, int nvtypes) {
-  swab_times = timings;
-  n_vtypes = vtypes;
-  n_nvtypes = nvtypes;
-  n_tot = n_vtypes + n_nvtypes;
-  swab_data_v = vdata;
-  swab_data_nv = nvdata;
-  ab_data = ab_data;
+bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_blocks) {
+  bool adapt = (iter/tot_param_blocks)%adapt_every == 0;
+  adapt = adapt & (iter*tot_param_blocks < adapt_until);
+  return (adapt);
 }
 
 // [[Rcpp::export]]
-NumericVector mcmc(std::vector <double> params, // vector of parameters
+arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt,
+                   std::vector <double> params, // vector of parameters
+                   std::vector <double> params_sd, // vector of variances for proposal distribution
                    std::vector <double> swab_data_v, // nrow=total number of vaccinated, ncol=swabs
-                   std::vector <double> swab_data_nv, // nrow=total number of vaccinated, ncol=swabs
-                   std::vector <double> swab_times, // timing of swabs
+                   std::vector <double> swab_data_nv, // nrow=total number of un-accinated, ncol=swabs
                    std::vector <double> ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-                   std::vector <double> mcmc_options // options for MCMC algorithm
+                   std::vector <double> swab_times, // timing of swabs
+                   std::vector <double> mcmc_options, // options for MCMC algorithm
+                   std::string filename // filename for output
                    ) {
-  int ntypes = vt_parameters.ncol();
-  int ntot = nvt_parameters.ncol() + ntypes;
-  int n_vt_params = vt_parameters.ncol()*vt_parameters.nrow();
-  int n_nvt_params = nvt_parameters.ncol()*nvt_parameters.nrow();
-  int n_other_params = params.size();
-  int nparams = n_vt_params + n_nvt_params + n_other_params;
-  NumericMatrix rates(ntot+1, ntot+1);
-  int niter = mcmc_options["niter"];
-  int sample_every = mcmc_options["sample_every"];
-  std::string filename = mcmc_options["filename"];
-  NumericMatrix old_vt_parameters = vt_parameters;
-  NumericMatrix old_nvt_parameters = nvt_parameters;
-  NumericVector old_params = params;
-  NumericMatrix results(niter, nparams+3);
+  int total_params = params.size();
+  Param parameters (n_vt, n_vt+n_nvt, params, params_sd);
+  Data dataset (swab_data_v, swab_data_nv, ab_data, swab_times, n_vt, n_nvt);
+  std::vector <double> results (params.size());
+  int n_param_blocks = params_sd.size();
+  int niter = mcmc_options[0];
+  arma::mat results_mat (niter, params.size()+4);
+  int sample_every = mcmc_options[1];
+  double optimal = mcmc_options[2];
+  int adapt_every = mcmc_options[3];
+  int adapt_until = mcmc_options[4];
+  parameters.initialize_file(filename);
   // Calculate likelihood and prior of initial parameters
-  double oldloglik = get_likelihood (vt_parameters, nvt_parameters, params, 
-                                     swab_data_v, swab_data_nv, swab_times);
-  double oldprior = get_prior(vt_parameters, nvt_parameters, params);
-  double newloglik;
-  double newprior;
+  parameters.initial_calc(dataset);
+  parameters.print_to_file(filename, 0, results_mat);
   for (int iter=1; iter<niter; iter++) {
-    // 
+    bool adapt_bool = adapt_this_iter(iter, adapt_every, adapt_until, n_param_blocks);
+    parameters.mcmc_move(dataset, adapt_bool, optimal);
     // Save parameter values
     if ((iter%sample_every)==0) {
-      for (int i=0; i<n_vt_params; i++) {
-        results[iter, i] = vt_parameters[i];
-      }
-      for (int i=0; i<n_nvt_params; i++) {
-        results[iter, i+n_vt_params] = nvt_parameters[i];
-      }
-      for (int i=0; i<n_other_params; ++i) {
-        results[iter, i+n_vt_params+n_nvt_params] = params[i];
-      }
+      parameters.print_to_file(filename, 0, results_mat);
     }
   }
   // arma::mat rates = 
@@ -291,6 +399,10 @@ NumericVector mcmc(std::vector <double> params, // vector of parameters
 
 /*** R
 load(sim.data.RData)
-mcmc.options <- list(niter=1000, sample_every=10, filename="testmcmc.txt")
-mcmc(42)
+mcmc.options <- c(niter=1000, sample_every=10, adapt_optimal=0.23, adapt_every=5, 
+                  adapt_until=10)
+mcmc.out <- mcmc(sim.params$N/2, sim.params$N/2, sim.params$ntypes, 
+                 sim.params$ntot-sim.params$ntypes, sim.params.vec, sim.params.sd,
+                 sim.data$vdata, sim.data$nvdata, sim.data$abdata, sim.params$times,
+                 mcmc_options, "test.txt")
 */
