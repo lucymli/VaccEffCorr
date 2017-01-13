@@ -24,7 +24,16 @@ theta.IS.agr <- with(sim.params, get_agr_IS(lambda, mu, thetaSI, thetaIS, ntypes
 #   colSums(sim.data.summ$mean.num.samples)
 # })
 # apply(variability, 1, sd)
-set.seed(1000)
+set.seed(2100)
 sim.data <- do.call(simulate_data, sim.params)
 #save(sim.data, file="sim.data.RData")
 cor(sim.data$abdata)
+plot(data.frame(sim.data$abdata))
+
+# t test to determine if there is a signfiant difference in the mean IgG concentrations
+# between fully protected individuals and partially protected individuals
+test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 1:sim.params$ntypes, return.p=TRUE) < 0.05
+test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 9, return.p = TRUE)
+
+# Plot the distributions of IgG concentrations
+plot_abdata(sim.data$abdata, sim.params$p0, sim.params$N/2)
