@@ -8,6 +8,16 @@ frailty_function <- function (p0, delta, N) {
   return(susceptibility)
 }
 
+is_fully_protected <- function (dataset, type.ids) {
+  apply(dataset[, -1:-2], 1, function (x) !any(x %in% (type.ids)))
+}
+
+reorder_by_protection <- function (dataset, ntypes) {
+  protected <- is_fully_protected(dataset, 1:ntypes)
+  dataset[protected, ] <- dataset[protected, ][order(apply(dataset[protected, -1:-2], 1, function (x) sum(x > 0))), ]
+  dataset[!protected, ] <- dataset[!protected, ][order(apply(dataset[!protected, -1:-2], 1, function (x) sum(x > 0))), ]
+  return (dataset)
+}
 simulate_data <- function (
   N, # even number of participants. Split between the two arms 50:50
   ntypes, # number of serotypes in the vaccine
@@ -63,13 +73,20 @@ simulate_data <- function (
     }
     return (observations-1)
   }, mc.cores=detectCores())))
-  antibody.measurements <- t(sapply(rgamma(N/2, 1/frailtySI, 1/frailtySI), function (x) {
-    x+rnorm(ntypes, -1.5, ab.noise)
+  random.frailties <- rgamma(N/2, 1/frailtySI, 1/frailtySI)
+  antibody.measurements <- t(sapply(1:length(random.frailties), function (i) {
+    out <- random.frailties[i]+rnorm(ntypes, -1.5, ab.noise)
+    protected.serotypes <- which(i<=floor(p0*N/2))
+    if (length(protected.serotypes) > 0) {
+      out[protected.serotypes] <- out[protected.serotypes] + log(abs(rnorm(length(protected.serotypes), 1.5)))
+    }
+    return (out)
   }))
   # antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
   colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
   # patient.data <- data.frame(patient.data, antibody.measurements)
-  return(list(vdata=patient.data[patient.data$vacc, ], nvdata=patient.data[!patient.data$vacc, ],
+  return(list(vdata=patient.data[patient.data$vacc, ], 
+              nvdata=patient.data[!patient.data$vacc, ],
               abdata=antibody.measurements))
 }
 
@@ -123,3 +140,30 @@ get_agr_IS <- function (lambda, mu, thetaSI, thetaIS, ntypes) {
   theta.IS.agr <- sum(A)/sum(B) * sum(D)/sum(E)
   return (theta.IS.agr)
 }
+
+
+test_ablevels_protection <- function (abdata, p0, N, types.ids, return.p=FALSE) {
+  p.values <- sapply(types.ids, function (i) {
+    protected.selection <- 1:floor(p0[i]*N)
+    out <- c()
+    out["t.test"] <- t.test(abdata[protected.selection, i], abdata[-protected.selection, i])$p.value
+    out["ks.test"] <- ks.test(abdata[protected.selection, i], abdata[-protected.selection, i])$p.value
+    return (out)
+  })
+  if (return.p) return(p.values)
+  else return (p.values < 0.05)
+}
+
+plot_abdata <- function (abdata, p0, N) {
+  abdata.long <- reshape2::melt(abdata)
+  abdata.long$protected <- 
+    unlist(lapply(p0, function (x) c(rep("full", floor(x*N)), rep("partial", N-floor(x*N)))))
+  require(ggplot2)
+  ggplot(abdata.long) + theme_bw() +
+    geom_density(aes(x=value, fill=protected), alpha=.4) +
+    facet_grid(Var2~.) +
+   xlab("IgG Concentration")
+}
+
+
+
