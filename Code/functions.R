@@ -154,6 +154,18 @@ test_ablevels_protection <- function (abdata, p0, N, types.ids, return.p=FALSE) 
   else return (p.values < 0.05)
 }
 
+plot_timeseries <- function (dataset, ntypes) {
+  V <- apply(dataset$vdata[, -1:-2], 2, function (x) c(sum(x %in% 1:ntypes), sum(x > ntypes), sum(x==0)))
+  NV <- apply(dataset$nvdata[, -1:-2], 2, function (x) c(sum(x %in% 1:ntypes), sum(x > ntypes), sum(x==0)))
+  V.df <- data.frame(time=rep(1:ncol(V), nrow(V)), count=c(t(V)), serotype=rep(c("Vaccine type", "Non-vaccine type", "No S.pneumo"), each=ncol(V)), set="Vaccine")
+  NV.df <- data.frame(time=rep(1:ncol(NV), nrow(NV)), count=c(t(NV)), serotype=rep(c("Vaccine type", "Non-vaccine type", "No S.pneumo"), each=ncol(NV)), set="No Vaccine")
+  combined.df <- rbind(V.df, NV.df)
+  require(ggplot2)
+  ggplot(combined.df) + theme_bw() +
+    geom_bar(aes(x=time, y=count, fill=set), stat="identity", position="dodge", alpha=.85) +
+    facet_grid(serotype~.)
+}
+
 plot_abdata <- function (abdata, p0, N) {
   abdata.long <- reshape2::melt(abdata)
   abdata.long$protected <- 
