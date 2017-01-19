@@ -12,12 +12,6 @@ is_fully_protected <- function (dataset, type.ids) {
   apply(dataset[, -1:-2], 1, function (x) !any(x %in% (type.ids)))
 }
 
-reorder_by_protection <- function (dataset, ntypes) {
-  protected <- is_fully_protected(dataset, 1:ntypes)
-  dataset[protected, ] <- dataset[protected, ][order(apply(dataset[protected, -1:-2], 1, function (x) sum(x > 0))), ]
-  dataset[!protected, ] <- dataset[!protected, ][order(apply(dataset[!protected, -1:-2], 1, function (x) sum(x > 0))), ]
-  return (dataset)
-}
 simulate_data <- function (
   N, # even number of participants. Split between the two arms 50:50
   ntypes, # number of serotypes in the vaccine
@@ -73,13 +67,8 @@ simulate_data <- function (
     }
     return (observations-1)
   }, mc.cores=detectCores())))
-  random.frailties <- rgamma(N/2, 1/frailtySI, 1/frailtySI)
-  antibody.measurements <- t(sapply(1:length(random.frailties), function (i) {
-    out <- random.frailties[i]+rnorm(ntypes, -1.5, ab.noise)
-    protected.serotypes <- which(i<=floor(p0*N/2))
-    if (length(protected.serotypes) > 0) {
-      out[protected.serotypes] <- out[protected.serotypes] + log(abs(rnorm(length(protected.serotypes), 1.5)))
-    }
+  antibody.measurements <- t(sapply(1:(N/2), function (i) {
+    out <- (max(frailtySI.mat)-(frailtySI.mat[i, 1:ntypes]+rnorm(ntypes, 5, ab.noise)))/2+1
     return (out)
   }))
   # antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
