@@ -16,7 +16,7 @@ class Data {
   std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
   std::vector <double> lambda_reduction; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
   int n_vacc, n_nvacc, n_swabs, n_vtypes, n_nvtypes,n_tot;
-  std::vector<double> mean_ab, sd_ab;
+  std::vector<double> mean_ab, sd_ab, max_ab;
 public:
   Data (std::vector<double>, std::vector<double>, std::vector<double>,
         std::vector <double>, int, int, int, int);
@@ -24,8 +24,10 @@ public:
   double get_swab_time (int);
   double get_swab_v (int, int);
   double get_swab_nv (int, int);
+  double get_ab (int, int);
   double get_mean_ab (int);
   double get_sd_ab (int);
+  double get_max_ab (int);
 };
 
 
@@ -43,12 +45,22 @@ Data::Data (std::vector<double> vdata, std::vector<double>nvdata,
   n_vtypes = vtypes;
   n_nvtypes = nvtypes;
   n_tot = n_vtypes + n_nvtypes;
+  double total;
   for (int i=0; i<n_vtypes; i++) {
-    double total = std::accumulate(abdata.begin()+(i*n_vacc), abdata.begin()+(i+1)*n_vacc, 0.0);
+    max_ab.push_back(abdata[i*n_vacc]);
+    for (int j=0; j<n_vacc; j++) {
+      if (abdata[i*n_vacc+j] > max_ab.back()) max_ab.back() = abdata[i*n_vacc+j];
+    }
+    for (int j=0; j<n_vacc; j++) {
+      abdata[i*n_vacc+j] = max_ab.back()-abdata[i*n_vacc+j];
+    }
+    total = std::accumulate(abdata.begin()+(i*n_vacc), abdata.begin()+(i+1)*n_vacc, 0.0);
     mean_ab.push_back(total/(double)n_vacc);
     sd_ab.push_back(0.0);
+    max_ab.push_back(abdata[i*n_vacc]);
     for (int j=0; j<n_vacc; j++) {
        sd_ab.back() += abdata[i*n_vacc+j]-mean_ab.back();
+      if (abdata[i*n_vacc+j] > max_ab.back()) max_ab.back() = abdata[i*n_vacc+j];
     }
     sd_ab.back() /= (double) n_vacc;
   }
@@ -74,12 +86,20 @@ double Data::get_swab_nv (int ind_i, int swab_i) {
   return (swab_data_nv[swab_i*n_nvacc+ind_i]);
 }
 
+double Data::get_ab (int ind_i, int type_i) {
+  return(ab_data[type_i*n_vacc+ind_i]);
+}
+
 double Data::get_mean_ab (int type_i) {
   return(mean_ab[type_i]);
 }
 
 double Data::get_sd_ab (int type_i) {
   return(sd_ab[type_i]);
+}
+
+double Data::get_max_ab (int type_i) {
+  return(max_ab[type_i]);
 }
 
 class Param {
@@ -101,7 +121,7 @@ public:
   // rates. currently include lambda, mu, and interaction between serotypes
   void next_block ();
   void calc_expm(bool, int, int, arma::mat &, double);
-  void get_rand_frailty (int num);
+  void get_rand_frailty (Data &);
   void initial_calc(Data);
   double calc_llik (Data);
   double calc_lprior (int) const;
@@ -185,11 +205,11 @@ void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix
   double tot_rate = 0.0;
   for (int i=0; i<n_tot; i++) {
     double full_immunity = (double) (ind <= (n_vacc*p0[i]));
-    matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier*full_immunity;
-    matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier*full_immunity;
+    matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
+    matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier;
     if (vacc & (i<=n_vtypes)) {
-      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind];
-      matrix_to_change(i+1, 0) *= thetaIS[i]*ind_frailty_IS[ind];
+      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind]*full_immunity;
+      matrix_to_change(i+1, 0) *= thetaIS[i]*full_immunity;//*ind_frailty_IS[ind];
     }
     if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
     tot_rate += matrix_to_change(0, i+1);
@@ -364,7 +384,7 @@ void Param::alter_param (bool reject) {
 void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
   // Code to propose
   alter_param (false);
-  get_rand_frailty(data["n_vacc"]);
+  get_rand_frailty(data);
   double newllik = calc_llik(data);
   double newlprior = calc_lprior();
   double z = R::unif_rand();
@@ -400,17 +420,22 @@ double Param::operator[](int i) {
   return (value);
 }
 
-void Param::get_rand_frailty (int num) {
+void Param::get_rand_frailty (Data & data) {
   ind_frailty_SI.clear();
-  ind_frailty_IS.clear();
-  for (int i=0; i<num; i++) {
-    ind_frailty_SI.push_back(R::rgamma(1.0/frailtySI, frailtySI));
-    ind_frailty_IS.push_back(R::rgamma(1.0/frailtyIS, frailtyIS));
+  // ind_frailty_IS.clear();
+  for (int type_i=0; type_i<data["n_vtypes"]; type_i++) {
+    double m1 = data.get_mean_ab(type_i);
+    double sd1 = data.get_sd_ab(type_i);
+    for (int ind_i=0; ind_i<data["n_vacc"]; ind_i++) {
+      ind_frailty_SI.push_back((data.get_ab(ind_i, type_i) + m1)*sqrt(frailtySI)/sd1);
+    }
+    // ind_frailty_SI.push_back(R::rgamma(1.0/frailtySI, frailtySI));
+    // ind_frailty_IS.push_back(R::rgamma(1.0/frailtyIS, frailtyIS));
   }
 }
 
 void Param::initial_calc(Data data) {
-  get_rand_frailty(data["n_vacc"]);
+  get_rand_frailty(data);
   llik = calc_llik(data);
   lprior = calc_lprior();
 }
