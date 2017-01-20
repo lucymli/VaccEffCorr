@@ -9,6 +9,19 @@ using namespace Rcpp;
 double SMALLEST_NUMBER = -std::numeric_limits<float>::max()+100000.0;
 double STATIONARY_TIME = 365000.0;
 
+void print_matrix (arma::mat & mat_to_output, std::string filename, int mat_dim) {
+  std::ofstream outputfile;
+  outputfile.open(filename);
+  for (int row_i=0; row_i<=mat_dim; row_i++) {
+    outputfile << mat_to_output(row_i, 0);
+    for (int col_i=1; col_i<=mat_dim; col_i++) {
+      outputfile << "\t" << mat_to_output(row_i, col_i);
+    }
+    outputfile << std::endl;
+  }
+  outputfile.close();
+}
+
 class Data {
   std::vector <double> swab_data_v; // nrow=total number of vaccinated, ncol=swabs
   std::vector <double> swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
@@ -16,7 +29,7 @@ class Data {
   std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
   std::vector <double> lambda_reduction; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
   int n_vacc, n_nvacc, n_swabs, n_vtypes, n_nvtypes,n_tot;
-  std::vector<double> mean_ab, sd_ab, max_ab;
+  std::vector<double> mean_ab, max_ab;
 public:
   Data (std::vector<double>, std::vector<double>, std::vector<double>,
         std::vector <double>, int, int, int, int);
@@ -26,7 +39,6 @@ public:
   double get_swab_nv (int, int);
   double get_ab (int, int);
   double get_mean_ab (int);
-  double get_sd_ab (int);
   double get_max_ab (int);
 };
 
@@ -45,24 +57,15 @@ Data::Data (std::vector<double> vdata, std::vector<double>nvdata,
   n_vtypes = vtypes;
   n_nvtypes = nvtypes;
   n_tot = n_vtypes + n_nvtypes;
-  double total;
   for (int i=0; i<n_vtypes; i++) {
-    max_ab.push_back(abdata[i*n_vacc]);
+    auto max_ele = max_element(abdata.begin()+i*n_vacc, abdata.begin()+(i+1)*n_vacc);
+    max_ab.push_back(*max_ele);
+    double mean_val = 0.0;
     for (int j=0; j<n_vacc; j++) {
-      if (abdata[i*n_vacc+j] > max_ab.back()) max_ab.back() = abdata[i*n_vacc+j];
-    }
-    for (int j=0; j<n_vacc; j++) {
+      mean_val += max_ab.back()-abdata[i*n_vacc+j];
       abdata[i*n_vacc+j] = max_ab.back()-abdata[i*n_vacc+j];
     }
-    total = std::accumulate(abdata.begin()+(i*n_vacc), abdata.begin()+(i+1)*n_vacc, 0.0);
-    mean_ab.push_back(total/(double)n_vacc);
-    sd_ab.push_back(0.0);
-    max_ab.push_back(abdata[i*n_vacc]);
-    for (int j=0; j<n_vacc; j++) {
-       sd_ab.back() += abdata[i*n_vacc+j]-mean_ab.back();
-      if (abdata[i*n_vacc+j] > max_ab.back()) max_ab.back() = abdata[i*n_vacc+j];
-    }
-    sd_ab.back() /= (double) n_vacc;
+    mean_ab.push_back(mean_val/(double)n_vacc);
   }
 }
 
@@ -92,10 +95,6 @@ double Data::get_ab (int ind_i, int type_i) {
 
 double Data::get_mean_ab (int type_i) {
   return(mean_ab[type_i]);
-}
-
-double Data::get_sd_ab (int type_i) {
-  return(sd_ab[type_i]);
 }
 
 double Data::get_max_ab (int type_i) {
@@ -208,7 +207,7 @@ void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix
     matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
     matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier;
     if (vacc & (i<=n_vtypes)) {
-      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[ind]*full_immunity;
+      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[(i-1)*n_vacc+ind]*full_immunity;
       matrix_to_change(i+1, 0) *= thetaIS[i]*full_immunity;//*ind_frailty_IS[ind];
     }
     if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
@@ -223,7 +222,7 @@ void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix
       if (row_i!=col_i) {
         matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier*interaction;
         if (vacc & (col_i<=n_vtypes)) {
-          matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*ind_frailty_SI[ind]*full_immunity;
+          matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*ind_frailty_SI[(col_i-1)*n_vacc+ind]*full_immunity;
         }
         if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
         tot_rate += matrix_to_change(row_i, col_i);
@@ -236,16 +235,7 @@ void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix
     original_matrix = arma::expmat(matrix_to_change);
   }
   catch(...) {
-    std::ofstream outputfile;
-    outputfile.open("matrix.txt");
-    for (int row_i=0; row_i<=n_tot; row_i++) {
-      outputfile << matrix_to_change(row_i, 0);
-      for (int col_i=1; col_i<=n_tot; col_i++) {
-        outputfile << "\t" << matrix_to_change(row_i, col_i);
-      }
-      outputfile << std::endl;
-    }
-    outputfile.close();
+    print_matrix(matrix_to_change, "matrix.txt", n_tot);
   }
 }
 
@@ -256,21 +246,42 @@ double Param::calc_llik (Data data) {
     /*For each individual, calculate the likelihood of observations*/
     position1 = (int) data.get_swab_v(i, 0);
     // calculate the probability of first swab results, i.e. at stationarity
-    calc_expm(true, i, data["n_vacc"], stationary_prev, STATIONARY_TIME);
+    try{
+      calc_expm(true, i, data["n_vacc"], stationary_prev, STATIONARY_TIME);
+    }
+    catch (...) {
+      return (SMALLEST_NUMBER);
+    }
     newllik += log(stationary_prev(0, position1));
     for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-      calc_expm(true, i, data["n_vacc"], transitions_t, data.get_swab_time(time_step));
+      try{
+        calc_expm(true, i, data["n_vacc"], transitions_t, data.get_swab_time(time_step));
+      }
+      catch (...) {
+        return (SMALLEST_NUMBER);
+      }
       position2 = (int) data.get_swab_v(i, time_step);
       newllik += log(transitions_t(position1,position2));
+      // Rcout << "i: "<< i << " time_step: " << time_step << " lik: " << newllik << std::endl;
       position1 = position2;
     }
   }
-  calc_expm(false, 0, 10, stationary_prev, STATIONARY_TIME);
+  try{
+    calc_expm(false, 0, 10, stationary_prev, STATIONARY_TIME);
+  }
+  catch (...) {
+    return (SMALLEST_NUMBER);
+  }
   for (int i=0; i<data["n_nvacc"]; i++) {
     position1 = (int) data.get_swab_nv(i, 0);
     newllik += log(stationary_prev(0, position1));
     for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-      calc_expm(true, i, 10, transitions_t, data.get_swab_time(time_step));
+      try{
+        calc_expm(false, i, 10, transitions_t, data.get_swab_time(time_step));
+      }
+      catch (...) {
+        return (SMALLEST_NUMBER);
+      }
       position2 = (int) data.get_swab_nv(i, time_step);
       newllik += log(transitions_t(position1, position2));
       position1 = position2;
@@ -425,9 +436,9 @@ void Param::get_rand_frailty (Data & data) {
   // ind_frailty_IS.clear();
   for (int type_i=0; type_i<data["n_vtypes"]; type_i++) {
     double m1 = data.get_mean_ab(type_i);
-    double sd1 = data.get_sd_ab(type_i);
     for (int ind_i=0; ind_i<data["n_vacc"]; ind_i++) {
-      ind_frailty_SI.push_back((data.get_ab(ind_i, type_i) + m1)*sqrt(frailtySI)/sd1);
+      // ind_frailty_SI.push_back((data.get_ab(ind_i, type_i)*sqrt(frailtySI)/sd1 + (1.0-m1)));
+      ind_frailty_SI.push_back((data.get_max_ab(type_i)-data.get_ab(ind_i, type_i))/m1);
     }
     // ind_frailty_SI.push_back(R::rgamma(1.0/frailtySI, frailtySI));
     // ind_frailty_IS.push_back(R::rgamma(1.0/frailtyIS, frailtyIS));
@@ -476,7 +487,7 @@ bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_
 }
 
 // [[Rcpp::export]]
-arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
+arma::mat mcmc_infer(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
                SEXP params, // vector of parameters
                SEXP params_sd, // vector of variances for proposal distribution
                SEXP swab_data_v, // nrow=total number of vaccinated, ncol=swabs
@@ -509,12 +520,18 @@ arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
   parameters.initial_calc(dataset);
   parameters.print_to_file(filename, 0, results_mat);
   bool adapt_bool;
+  std::chrono::time_point<std::chrono::system_clock> start, end;
+  start = std::chrono::system_clock::now();
   for (int iter=1; iter<niter; iter++) {
     adapt_bool = adapt_this_iter(iter, adapt_every, adapt_until, n_param_blocks);
     parameters.mcmc_move(dataset, adapt_bool, optimal);
     // Save parameter values
     if ((iter%sample_every)==0) {
       parameters.print_to_file(filename, iter/sample_every, results_mat);
+      end = std::chrono::system_clock::now();
+      std::chrono::duration<double> elapsed_seconds = end-start;
+      Rcout << iter << ") " << elapsed_seconds.count() << std::endl;
+      start=end;
     }
   }
   return results_mat;
@@ -529,12 +546,13 @@ arma::mat mcmc(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
 /*** R
 setwd("~/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Code")
 load("sim.data.RData")
-mcmc_options <- c(niter=50, sample_every=10, adapt_optimal=0.23, adapt_every=5,
+mcmc_options <- c(niter=3000000, sample_every=1000, adapt_optimal=0.23, adapt_every=5,
                   adapt_until=10)
-mcmc.out <- mcmc(sim.params$N/2, sim.params$N/2, sim.params$ntypes,
+mcmc.out <- mcmc_infer(sim.params$N/2, sim.params$N/2, sim.params$ntypes,
                  sim.params$ntot-sim.params$ntypes, length(sim.params.vec),
                  unname(sim.params.vec), unname(sim.params.sd),
                  unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
-                 unlist(sim.data$abdata), sim.params$times,
+                 c(sim.data$abdata), sim.params$times,
                  mcmc_options, "test.txt")
+plot(1:unname(mcmc_options["niter"]/mcmc_options["sample_every"]), read.table("test.txt", header=TRUE)[, 2], type="l")
 */
