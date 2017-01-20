@@ -309,6 +309,7 @@ double Param::calc_lprior () const {
   double newlprior = 0.0;
   for (int i=0; i<n_blocks; i++) {
     newlprior += calc_lprior(i);
+    if (newlprior <= SMALLEST_NUMBER) return (SMALLEST_NUMBER);
   }
   return (newlprior);
 }
@@ -423,10 +424,10 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
 double Param::operator[](int i) {
   double value;
   if (i < n_tot) value = lambda[i];
-  else if (i < n_tot*2) value = mu[i-n_tot*2];
-  else if (i < n_tot*2+n_vtypes) value = thetaSI[i-n_tot*2-n_vtypes];
-  else if (i < n_tot*2+n_vtypes*2) value = thetaIS[i-n_tot*2-n_vtypes*2];
-  else if (i < n_tot*2+n_vtypes*3) value = p0[i-n_tot*2-n_vtypes*3];
+  else if (i < n_tot*2) value = mu[i-n_tot];
+  else if (i < n_tot*2+n_vtypes) value = thetaSI[i-n_tot*2];
+  else if (i < n_tot*2+n_vtypes*2) value = thetaIS[i-n_tot*2-n_vtypes];
+  else if (i < n_tot*2+n_vtypes*3) value = p0[i-n_tot*2-n_vtypes*2];
   else if (i == n_tot*2+n_vtypes*3) value = frailtySI;
   else if (i == n_tot*2+n_vtypes*3+1) value = frailtyIS;
   else value = interaction;
@@ -467,17 +468,17 @@ void Param::initialize_file (std::string filename) {
   output_file.close();
 }
 
-void Param::print_to_file (std::string filename, int iter, arma::mat &results_mat) {
-  results_mat(iter, 0) = iter;
-  results_mat(iter, 1) = llik+lprior;
-  results_mat(iter, 2) = llik;
-  results_mat(iter, 3) = lprior;
+void Param::print_to_file (std::string filename, int iter, arma::mat &output_mat) {
+  output_mat(iter, 0) = iter;
+  output_mat(iter, 1) = llik+lprior;
+  output_mat(iter, 2) = llik;
+  output_mat(iter, 3) = lprior;
   std::ofstream output_file;
   output_file.open(filename, std::ofstream::app);
   output_file << iter << "\t" << llik+lprior << "\t" << llik << "\t" << lprior;
   for (int i=0; i<(n_tot*2+n_vtypes*3+3); i++) {
     output_file << "\t" << (*this)[i];
-    results_mat(iter, i+4) = (*this)[i];
+    output_mat(iter, i+4) = (*this)[i];
   }
   output_file << std::endl;
   output_file.close();
