@@ -297,7 +297,7 @@ double Param::calc_lprior (int block_i) const {
   else if (block_i==1) for (auto i=mu.begin(); i<mu.end(); i++) newlprior += R::dlnorm(*i, -5.9, 0.2, 1);
   else if (block_i==2) for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) newlprior += R::dunif(*i, 0, 1, 1);
   else if (block_i==3) for (auto i=thetaIS.begin(); i<thetaIS.end(); i++) newlprior += R::dunif(*i, 0.5, 2.0, 1);
-  else if (block_i==4) for (auto i=p0.begin(); i<p0.end(); i++) newlprior += R::dunif(*i, 0, 1, 1);
+  else if (block_i==4) for (auto i=p0.begin(); i<p0.end(); i++) newlprior += R::dunif(*i, 0.0, 1.0, 1);
   else if (block_i==5) newlprior += R::dexp(frailtySI, 1, 1);
   else if (block_i==6) newlprior += R::dexp(frailtyIS, 1, 1);
   else if (block_i==7) newlprior += R::dunif(interaction, 0.0, 1.0, 1);
@@ -315,11 +315,11 @@ double Param::calc_lprior () const {
 
 double Param::uni_propose (double oldval, double sd, int ntries) const {
   double newval = R::rnorm(oldval, sd);
-  while (newval < 0) {
-    newval = R::rnorm(oldval, sd);
-    ntries--;
-    if (ntries < 0) break;
-  }
+  // while (newval < 0) {
+  newval = R::rnorm(oldval, sd);
+  // ntries--;
+  // if (ntries < 0) break;
+  // }
   return (newval);
 }
 
@@ -382,10 +382,10 @@ void Param::alter_param (bool reject) {
   }
   else if (block_ptr==7) {
     if (reject) {
-    interaction = tempparam[0];
-    update_transitions();
-    return;
-  }
+      interaction = tempparam[0];
+      update_transitions();
+      return;
+    }
     tempparam[0] = interaction;
     interaction = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
     update_transitions();
@@ -396,8 +396,9 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
   // Code to propose
   alter_param (false);
   get_rand_frailty(data);
-  double newllik = calc_llik(data);
   double newlprior = calc_lprior();
+  double newllik = SMALLEST_NUMBER;
+  if (newlprior > SMALLEST_NUMBER) newllik = calc_llik(data);
   double z = R::unif_rand();
   bool reject = log(z) > (newllik+newlprior-llik-lprior);
   if (reject) {
@@ -409,7 +410,8 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
     lprior = newlprior;
   }
   if (adapt) {
-    double change = exp(0.999/2.0*(proposal_sd[block_ptr]-optimal_adapt));
+    double acceptance_rate = (double)accepted[block_ptr] / (double)(accepted[block_ptr]+rejected[block_ptr]);
+    double change = exp(0.999/2.0*(acceptance_rate-optimal_adapt));
     proposal_sd[block_ptr] *= change;
     std::fill(accepted.begin(), accepted.end(), 0.0);
     std::fill(rejected.begin(), rejected.end(), 0.0);
@@ -447,8 +449,9 @@ void Param::get_rand_frailty (Data & data) {
 
 void Param::initial_calc(Data data) {
   get_rand_frailty(data);
-  llik = calc_llik(data);
   lprior = calc_lprior();
+  if (lprior > SMALLEST_NUMBER) llik = calc_llik(data);
+  else llik = SMALLEST_NUMBER;
 }
 
 void Param::initialize_file (std::string filename) {
@@ -482,20 +485,21 @@ void Param::print_to_file (std::string filename, int iter, arma::mat &results_ma
 
 bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_blocks) {
   bool adapt = (iter/tot_param_blocks)%adapt_every == 0;
-  adapt = adapt & (iter*tot_param_blocks < adapt_until);
+  adapt = adapt & ((iter/tot_param_blocks) < adapt_until);
+  if (iter < tot_param_blocks) adapt = false;
   return (adapt);
 }
 
 // [[Rcpp::export]]
 arma::mat mcmc_infer(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_params,
-               SEXP params, // vector of parameters
-               SEXP params_sd, // vector of variances for proposal distribution
-               SEXP swab_data_v, // nrow=total number of vaccinated, ncol=swabs
-               SEXP swab_data_nv, // nrow=total number of un-accinated, ncol=swabs
-               SEXP ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-               SEXP swab_times, // timing of swabs
-               SEXP mcmc_options, // options for MCMC algorithm
-               SEXP filename_sexp // filename for output
+                     SEXP params, // vector of parameters
+                     SEXP params_sd, // vector of variances for proposal distribution
+                     SEXP swab_data_v, // nrow=total number of vaccinated, ncol=swabs
+                     SEXP swab_data_nv, // nrow=total number of un-accinated, ncol=swabs
+                     SEXP ab_data, // nrow=total number of vaccinated, ncol=serotypes in a vaccine
+                     SEXP swab_times, // timing of swabs
+                     SEXP mcmc_options, // options for MCMC algorithm
+                     SEXP filename_sexp // filename for output
 ) {
   std::vector <double> params_vec = Rcpp::as<std::vector<double> >(params);
   std::vector <double> params_sd_vec = Rcpp::as<std::vector<double> >(params_sd);
@@ -546,13 +550,13 @@ arma::mat mcmc_infer(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_para
 /*** R
 setwd("~/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Code")
 load("sim.data.RData")
-mcmc_options <- c(niter=3000000, sample_every=1000, adapt_optimal=0.23, adapt_every=5,
-                  adapt_until=10)
+mcmc_options <- c(niter=1000, sample_every=10, adapt_optimal=0.23, adapt_every=5,
+                  adapt_until=100)
 mcmc.out <- mcmc_infer(sim.params$N/2, sim.params$N/2, sim.params$ntypes,
-                 sim.params$ntot-sim.params$ntypes, length(sim.params.vec),
-                 unname(sim.params.vec), unname(sim.params.sd),
-                 unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
-                 c(sim.data$abdata), sim.params$times,
-                 mcmc_options, "test.txt")
+                       sim.params$ntot-sim.params$ntypes, length(sim.params.vec),
+                       unname(sim.params.vec), unname(sim.params.sd),
+                       unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
+                       c(sim.data$abdata), sim.params$times,
+                       mcmc_options, "test.txt")
 plot(1:unname(mcmc_options["niter"]/mcmc_options["sample_every"]), read.table("test.txt", header=TRUE)[, 2], type="l")
 */
