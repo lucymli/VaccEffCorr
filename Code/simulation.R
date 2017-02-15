@@ -1,19 +1,19 @@
 #setwd("~/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Code")
 source("functions.R")
-ntypes = 3
-ntot = 5
-sim.params <- list(N=1000, ntypes=ntypes, ntot=ntot, nswabs=5,
-                   times=c(365/12, 6*365/12, 7*365/12, 365, 18*365/12),
-     lambda=rlnorm(ntot, log(0.0026696), 2e-1),#c(0.005,0.0037,0.002,0.0025,0.003,0.0019,0.0015,0.002,0.002,0.0027,0.0018,0.0019,0.002, # vaccine types
-            #  0.003689, 0.002932, 0.003226, 0.002592, 0.003269, 0.002542, 0.003142), # nonvaccine types
-     mu=rlnorm(ntot, log(0.026696), 2e-1),#c(0.0333,0.0333,0.0286,0.0286,0.0286,0.0286,0.0222,0.0333,0.0333,0.0333,0.025,0.0143,0.0286, #vaccine types
-        #  0.02914, 0.02736, 0.0272, 0.03303, 0.03161, 0.03369, 0.03009)/10, #nonvaccine types
-     thetaSI=c(0.632, 0.476, 0.518, 0.617, 0.496, 0.53, 0.54, 0.682, 0.602, 0.639, 0.555, 0.618, 0.507)[1:ntypes],
-     thetaIS=1/c(0.854, 1, 0.723, 0.919, 0.859, 1, 1, 0.891, 1, 0.911, 1, 0.918, 0.84)[1:ntypes],
-     p0=rnorm(ntypes, 0.4, 0.1),
-     frailtySI=0.2, frailtyIS=0.2, interaction=0.4)
+ntypes = 7
+ntot = 10
+day.units = 1
+nswabs = 3
+sim.params <- list(N=200, ntypes=ntypes, ntot=ntot, nswabs=nswabs,
+                   times=(c(2, 7, 12, 13, 18, 24)[1:nswabs])*30/day.units,
+     lambda=c(rlnorm(ntypes, log(0.036696), 2e-1), rlnorm(ntot-ntypes, log(0.016696), 2e-1))*day.units,
+     mu=rlnorm(ntot, log(0.016696), 2e-1)*day.units,
+     thetaSI=rnorm(ntypes, 0.3505, 0.06),
+     thetaIS=1/rnorm(ntypes, 1, 0.06)[1:ntypes],
+     p0=rep(0, ntypes),#abs(rnorm(ntypes, 0.5, 0.05)),
+     frailtySI=0.2, frailtyIS=0.2, interaction=0.7)
 sim.params.vec <- unlist(sim.params[-1:-5])
-sim.params.sd <- c(lambda=0.005, mu=0.005, thetaSI=0.3, thetaIS=0.1, p0=0.2,
+sim.params.sd <- list(lambda=mean(sim.params$lambda)*0.01, mu=mean(sim.params$mu)*0.01, thetaSI=0.3, thetaIS=0.1, p0=0.2,
                    frailtySI=0.2, frailtyIS=0.2, interaction=0.2)
 sim.params$ab.noise <- runif(sim.params$ntypes, 0.0, 0.05)
 
@@ -29,37 +29,62 @@ theta.IS.agr <- with(sim.params, get_agr_IS(lambda, mu, thetaSI, thetaIS, ntypes
 # apply(variability, 1, sd)
 set.seed(2100)
 sim.data <- do.call(simulate_data, sim.params)
+mcmc_options <- list(niter=5000, sample_every=100, adapt_optimal=0.23, adapt_every=10,
+                  adapt_until=100)
 save.image(file="sim.data.RData")
-cor(sim.data$abdata)
-plot_timeseries(sim.data, sim.params$ntypes)
-plot(data.frame(sim.data$abdata))
 
-# t test to determine if there is a signficant difference in the mean IgG concentrations
-# between fully protected individuals and partially protected individuals
-test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 1:sim.params$ntypes, return.p=TRUE) < 0.05
-# test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 9, return.p = TRUE)
 
-# Plot the distributions of IgG concentrations
-plot_abdata(sim.data$abdata, sim.params$p0, sim.params$N/2)
+mcmc_infer (sim.params, sim.params.sd, sim.data, mcmc_options, 
+            mcmc.program.dir="VaccInfer/VaccInfer", program.name="mcmc_infer",
+            run.program = FALSE)
 
-ab.levels.df <- do.call(rbind, lapply(1:ntypes, function(typei) {
-  df.ts <- apply(sim.data$vdata[, -1:-2], 2, function (x) {
-    df1 <- data.frame(value=sim.data$abdata[x==typei, typei])
-    df2 <- data.frame(value=sim.data$abdata[x!=typei, typei])
-    if (nrow(df1)==0) return (cbind(df2, group="not infected"))
-    else if (nrow(df2)==0) return (cbind(df1, group="infected"))
-    else return (rbind(cbind(df1, group="infected"), cbind(df2, group="not infected")))
-  })
-  do.call(rbind, mapply(cbind, df.ts, time=1:length(df.ts), type=paste("serotype", typei), SIMPLIFY = FALSE))
-}))
 
-ggplot(ab.levels.df, aes(x=factor(time), y=value, fill=group)) + theme_bw() +
-  geom_point(pch=21, position=position_jitterdodge()) +
-  geom_boxplot(aes(x=factor(time), y=value, fill=group), alpha=.5) +
-  facet_grid(type~.) +
-  ylab("Antibody levels") + xlab("Swab #")
-ggplot(ab.levels.df, aes(x=factor(time), y=value, fill=group)) + theme_bw() +
-  geom_point(pch=21, position=position_jitterdodge()) +
-  geom_boxplot(aes(x=factor(time), y=value, fill=group), alpha=.5) +
-  ylab("Antibody levels") + xlab("Swab #")
+
+
+
+if (FALSE) {
+  library(ggplot2)
+  
+  cor(sim.data$abdata)
+  # plot_timeseries(sim.data, sim.params$ntypes)
+  # plot(data.frame(sim.data$abdata))
+  
+  # t test to determine if there is a signficant difference in the mean IgG concentrations
+  # between fully protected individuals and partially protected individuals
+  test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 1:sim.params$ntypes, return.p=TRUE) < 0.05
+  # test_ablevels_protection(sim.data$abdata, sim.params$p0, sim.params$N/2, 9, return.p = TRUE)
+  
+  # Plot the distributions of IgG concentrations
+  # plot_abdata(sim.data$abdata, sim.params$p0, sim.params$N/2)
+  
+  ab.levels.df <- data.frame(ab=sim.data$abdata[, 1], apply(sim.data$vdata[, -1:-2], 2, function (x) c("not infected", "infected by vt", "infected by nvt")[findInterval(x, c(1, ntypes+1))+1]))
+  ab.levels.df <- reshape2::melt(ab.levels.df, id.vars="ab", variable.name="time", value.name="group")
+  
+  # ggplot(ab.levels.df, aes(x=factor(time), y=ab, fill=group)) + theme_bw() +
+  #   geom_point(pch=21, position=position_jitterdodge()) +
+  #   geom_boxplot(aes(x=factor(time), y=ab, fill=group), alpha=.5) +
+  #   facet_grid(type~.) +
+  #   ylab("Antibody levels") + xlab("Swab #")
+  
+  ### Real Data
+  ab.data <- readRDS("/Users/Lucy/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Documents/Pfizer/final_version/data.rds")
+  rbind(colSums(subset(ab.data, rtrtn=="PCV13")[, paste0("nvt.v", 1:8)])/nrow(subset(ab.data, rtrtn=="PCV13")),
+        colSums(subset(ab.data, rtrtn=="PCV13")[, paste0("vt.v", 1:8)])/nrow(subset(ab.data, rtrtn=="PCV13")))
+  ### Simulated Data
+  do.call(cbind, lapply(lapply(split(ab.levels.df$group, ab.levels.df$time), table), prop.table))
+  
+  
+  ggplot(data.frame(ab=ab.data$mean.igg.v4, 
+                    infected=factor(nchar(as.character(ab.data$sertyp.v4))!=0)), 
+         aes(x=infected, y=ab, fill=infected)) + theme_bw() +
+    geom_point(pch=21, position=position_jitterdodge()) + 
+    geom_boxplot(alpha=.4) + scale_y_log10()
+  ggplot(ab.levels.df, aes(x=factor(time), y=ab, fill=group)) + theme_bw() +
+    geom_point(pch=21, position=position_jitterdodge()) +
+    geom_boxplot(aes(x=factor(time), y=ab, fill=group), alpha=.5) +
+    ylab("Antibody levels") + xlab("Swab #") +
+    scale_y_log10()
+}
+
+
 
