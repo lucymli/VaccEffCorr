@@ -10,6 +10,8 @@
 
 double SMALLEST_NUMBER = -std::numeric_limits<float>::max()+100000.0;
 double STATIONARY_TIME = 18262.0;
+boost::mt19937 rng(NULL);
+
 
 void print_matrix (arma::mat & mat_to_output, std::string filename, int mat_dim) {
     std::ofstream outputfile;
@@ -55,6 +57,7 @@ Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
     // Rcout << "frailtySI: " << frailtySI << " frailtyIS: " << frailtyIS << " interaction: " << interaction << std::endl;
     n_blocks = 8;
     block_ptr = 0;
+    param_ptr = 0;
     accepted = std::vector <double>(n_blocks);
     rejected = std::vector <double>(n_blocks);
     proposal_sd = input_var;
@@ -88,10 +91,7 @@ void Param::update_transitions () {
 
 void Param::next_block() {
     block_ptr++;
-    if (block_ptr == 2) block_ptr++;
-    if (block_ptr == 3) block_ptr++;
-    if (block_ptr == 5) block_ptr++;
-    if (block_ptr == 6) block_ptr++;
+    while (block_ptr >= 1 & block_ptr < n_blocks) block_ptr++;
     if (block_ptr >= n_blocks) block_ptr = 0;
 }
 
@@ -196,13 +196,13 @@ double Param::calc_lprior (int block_i) const {
     double newlprior = 0.0;
     if (block_i==0) {
         for (auto i=lambda.begin(); i<lambda.end(); i++) {
-            boost::math::lognormal_distribution <double> density(-5.6, 0.2);
+            boost::math::uniform_distribution <double> density(0.000000001, 100.0);
             newlprior += log(boost::math::pdf(density, *i));
         }
     }
     else if (block_i==1) {
         for (auto i=mu.begin(); i<mu.end(); i++) {
-            boost::math::lognormal_distribution <double> density(-3.3, 0.2);
+            boost::math::uniform_distribution <double> density(0.000000001, 100.0);
             newlprior += log(boost::math::pdf(density, *i));
         }
     }
@@ -250,7 +250,6 @@ double Param::calc_lprior () const {
 }
 
 double Param::uni_propose (double oldval, double sd, int ntries) const {
-    boost::mt19937 rng;
     boost::normal_distribution<> nd(oldval, sd);
     boost::variate_generator<boost::mt19937&, boost::normal_distribution<> > var_nor(rng, nd);
     double newval = var_nor();
@@ -271,9 +270,11 @@ void Param::alter_param (bool reject) {
             return;
         }
         tempparam = lambda;
-        for (int i=0; i<n_tot; i++) {
-            lambda[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
-        }
+        //for (int i=0; i<n_tot; i++) {
+            lambda[param_ptr] = uni_propose(tempparam[param_ptr], proposal_sd[block_ptr], ntries);
+        param_ptr++;
+        if (param_ptr>=n_tot) param_ptr=0;
+        //}
         update_transitions();
     }
     else if (block_ptr==1) {
@@ -283,9 +284,11 @@ void Param::alter_param (bool reject) {
             return;
         }
         tempparam = mu;
-        for (int i=0; i<n_tot; i++) {
-            mu[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
-        }
+        //for (int i=0; i<n_tot; i++) {
+            mu[param_ptr] = uni_propose(tempparam[param_ptr], proposal_sd[block_ptr], ntries);
+        //}
+        param_ptr++;
+        if (param_ptr>=n_tot) param_ptr=0;
         update_transitions();
     }
     else if (block_ptr==2) {
@@ -347,18 +350,18 @@ void Param::alter_param (bool reject) {
 }
 
 void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
-    if ((block_ptr == 3) | (block_ptr == 6) | (block_ptr == 7)) next_block();
+    next_block();
     // Code to propose
     alter_param (false);
     get_rand_frailty(data);
     double newlprior = calc_lprior();
     double newllik = SMALLEST_NUMBER;
     if (newlprior > SMALLEST_NUMBER) newllik = calc_llik(data);
-    boost::random::mt19937 rng;
     boost::uniform_01<> zeroone;
     boost::variate_generator<boost::mt19937&, boost::uniform_01<> > runif(rng, zeroone);
-    double z = runif();
-    bool reject = log(z) > (newllik+newlprior-llik-lprior);
+    double z = log(runif());
+    double ratio = (newllik+newlprior-llik-lprior);
+    bool reject = z > ratio;
     if (reject) {
         alter_param (true);
         rejected[block_ptr]++;
@@ -417,11 +420,12 @@ void Param::initialize_file (std::string filename) {
     output_file.open(filename);
     output_file << "state\tposterior\tlikelihood\tprior";
     for (int i=0; i<n_tot; i++) output_file << "\tlambda" << i;
-    for (int i=0; i<n_tot; i++) output_file << "\tmu" << i;
-    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaSI" << i;
-    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
-    for (int i=0; i<n_vtypes; i++) output_file << "\tp0" << i;
-    output_file <<"\tfrailtySI\tfrailtyIS\tinteraction" << std::endl;
+//    for (int i=0; i<n_tot; i++) output_file << "\tmu" << i;
+//    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaSI" << i;
+//    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
+//    for (int i=0; i<n_vtypes; i++) output_file << "\tp0" << i;
+//    output_file <<"\tfrailtySI\tfrailtyIS\tinteraction";
+    output_file << std::endl;
     output_file.close();
 }
 
@@ -433,7 +437,7 @@ void Param::print_to_file (std::string filename, int iter, arma::mat &output_mat
     std::ofstream output_file;
     output_file.open(filename, std::ofstream::app);
     output_file << iter << "\t" << llik+lprior << "\t" << llik << "\t" << lprior;
-    for (int i=0; i<n_params; i++) {
+    for (int i=0; i<n_tot; i++) {
         output_file << "\t" << (*this)[i];
         output_mat(iter, i+4) = (*this)[i];
     }

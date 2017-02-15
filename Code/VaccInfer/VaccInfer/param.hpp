@@ -13,13 +13,14 @@
 #include <cmath>
 #include <armadillo>
 #include <boost/random.hpp>
+#include <boost/random/random_device.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/math/distributions.hpp>
 #include "data.hpp"
 #include "expm.hpp"
 
 class Param {
-    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr; // counts
+    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr; // counts
     std::vector <double> tempparam, lambda, mu; // parameter vectors
     std::vector <double> thetaSI, thetaIS, p0;
     double frailtySI, frailtyIS, interaction; // non-serotype-specific parameters

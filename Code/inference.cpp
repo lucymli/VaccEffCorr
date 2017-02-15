@@ -119,7 +119,7 @@ public:
   // a new parameter is proposed or rejected, if the parameter affects the transition
   // rates. currently include lambda, mu, and interaction between serotypes
   void next_block ();
-  void calc_expm(bool, int, int, arma::mat &, double);
+  void calc_expm(bool, int, Data, arma::mat &, double);
   void get_rand_frailty (Data &);
   void initial_calc(Data);
   double calc_llik (Data);
@@ -199,15 +199,17 @@ void Param::next_block() {
   if (block_ptr >= n_blocks) block_ptr = 0;
 }
 
-void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix, double multiplier) {
+void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, double multiplier) {
+  int n_vacc = data["n_vacc"];
   arma::mat matrix_to_change(original_matrix);
   double tot_rate = 0.0;
+  Rcout << ind << "__" << std::endl;
   for (int i=0; i<n_tot; i++) {
     double full_immunity = (double) (ind <= (n_vacc*p0[i]));
     matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
     matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier;
     if (vacc & (i<=n_vtypes)) {
-      matrix_to_change(0, i+1) *= thetaSI[i]*ind_frailty_SI[(i-1)*n_vacc+ind]*full_immunity;
+      matrix_to_change(0, i+1) *= thetaSI[i]*full_immunity*(data.get_max_ab(i-1)-data.get_ab(ind, i-1))/data.get_max_ab(i-1);//*ind_frailty_SI[(i-1)*n_vacc+ind]
       matrix_to_change(i+1, 0) *= thetaIS[i]*full_immunity;//*ind_frailty_IS[ind];
     }
     if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
@@ -222,7 +224,7 @@ void Param::calc_expm(bool vacc, int ind, int n_vacc, arma::mat& original_matrix
       if (row_i!=col_i) {
         matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier*interaction;
         if (vacc & (col_i<=n_vtypes)) {
-          matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*ind_frailty_SI[(col_i-1)*n_vacc+ind]*full_immunity;
+          matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*full_immunity*(data.get_max_ab(col_i-1)-data.get_ab(ind, col_i-1))/data.get_max_ab(col_i-1);//*ind_frailty_SI[(col_i-1)*n_vacc+ind]
         }
         if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
         tot_rate += matrix_to_change(row_i, col_i);
@@ -247,7 +249,7 @@ double Param::calc_llik (Data data) {
     position1 = (int) data.get_swab_v(i, 0);
     // calculate the probability of first swab results, i.e. at stationarity
     try{
-      calc_expm(true, i, data["n_vacc"], stationary_prev, STATIONARY_TIME);
+      calc_expm(true, i, data, stationary_prev, STATIONARY_TIME);
     }
     catch (...) {
       return (SMALLEST_NUMBER);
@@ -255,7 +257,7 @@ double Param::calc_llik (Data data) {
     newllik += log(stationary_prev(0, position1));
     for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
       try{
-        calc_expm(true, i, data["n_vacc"], transitions_t, data.get_swab_time(time_step));
+        calc_expm(true, i, data, transitions_t, data.get_swab_time(time_step));
       }
       catch (...) {
         return (SMALLEST_NUMBER);
@@ -267,7 +269,7 @@ double Param::calc_llik (Data data) {
     }
   }
   try{
-    calc_expm(false, 0, 10, stationary_prev, STATIONARY_TIME);
+    calc_expm(false, 0, data, stationary_prev, STATIONARY_TIME);
   }
   catch (...) {
     return (SMALLEST_NUMBER);
@@ -277,7 +279,7 @@ double Param::calc_llik (Data data) {
     newllik += log(stationary_prev(0, position1));
     for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
       try{
-        calc_expm(false, i, 10, transitions_t, data.get_swab_time(time_step));
+        calc_expm(false, i, data, transitions_t, data.get_swab_time(time_step));
       }
       catch (...) {
         return (SMALLEST_NUMBER);
@@ -300,7 +302,7 @@ double Param::calc_lprior (int block_i) const {
   else if (block_i==4) for (auto i=p0.begin(); i<p0.end(); i++) newlprior += R::dunif(*i, 0.0, 1.0, 1);
   else if (block_i==5) newlprior += R::dexp(frailtySI, 1, 1);
   else if (block_i==6) newlprior += R::dexp(frailtyIS, 1, 1);
-  else if (block_i==7) newlprior += R::dunif(interaction, 0.0, 1.0, 1);
+  else if (block_i==7) newlprior += R::dbeta(interaction, 200, 300, 1); // mean = 0.4, sd = 0.2
   if (!std::isfinite(newlprior)) newlprior = SMALLEST_NUMBER;
   return (newlprior);
 }
@@ -394,6 +396,7 @@ void Param::alter_param (bool reject) {
 }
 
 void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
+  if ((block_ptr == 3) | (block_ptr == 6) | (block_ptr == 7)) next_block();
   // Code to propose
   alter_param (false);
   get_rand_frailty(data);
@@ -449,7 +452,7 @@ void Param::get_rand_frailty (Data & data) {
 }
 
 void Param::initial_calc(Data data) {
-  get_rand_frailty(data);
+  // get_rand_frailty(data);
   lprior = calc_lprior();
   if (lprior > SMALLEST_NUMBER) llik = calc_llik(data);
   else llik = SMALLEST_NUMBER;
@@ -550,14 +553,22 @@ arma::mat mcmc_infer(int vaccN, int unvaccN, int n_vt, int n_nvt, int total_para
 
 /*** R
 setwd("~/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Code")
+source("parse_data.R")
+sim.data <- new.env()
+load("sim.data.RData", sim.data)
+plot.prev.timeseries(data.frame(apply(sim.data$sim.data$vdata[, -1:-2], 2, findInterval, c(1, sim.data$sim.params$ntypes))))
 load("sim.data.RData")
-mcmc_options <- c(niter=1000, sample_every=10, adapt_optimal=0.23, adapt_every=5,
+mcmc_options <- c(niter=5000, sample_every=100, adapt_optimal=0.23, adapt_every=10,
                   adapt_until=100)
-mcmc.out <- mcmc_infer(sim.params$N/2, sim.params$N/2, sim.params$ntypes,
-                       sim.params$ntot-sim.params$ntypes, length(sim.params.vec),
-                       unname(sim.params.vec), unname(sim.params.sd),
-                       unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
-                       c(sim.data$abdata), sim.params$times,
-                       mcmc_options, "test.txt")
-plot(1:unname(mcmc_options["niter"]/mcmc_options["sample_every"]), read.table("test.txt", header=TRUE)[, 2], type="l")
+mcmc.out <- data.frame(mcmc_infer(sim.params$N/2, sim.params$N/2, sim.params$ntypes,
+                                  sim.params$ntot-sim.params$ntypes, length(sim.params.vec),
+                                  unname(sim.params.vec), unname(sim.params.sd),
+                                  unlist(sim.data$vdata[, -1:-2]), unlist(sim.data$nvdata[, -1:-2]),
+                                  c(sim.data$abdata), sim.params$times,
+                                  mcmc_options, "test.txt"))
+library(ggplot2)
+selected.var <- c(1:4, 5:(4+sim.params$ntot*2+sim.params$ntypes), (5+sim.params$ntot*2+sim.params$ntypes*2):(5+sim.params$ntot*2+sim.params$ntypes*3+1), ncol(mcmc.out))
+# ggplot(reshape2::melt(mcmc.out[, selected.var], id.vars="X1"), aes(x=X1, y=value)) + theme_bw() +
+  # geom_line() + facet_grid(variable~., scales="free_y")
+# cor(mcmc.out[, c(10:14, ncol(mcmc.out))])
 */

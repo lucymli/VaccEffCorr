@@ -18,9 +18,11 @@
 
 
 bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_blocks) {
-    bool adapt = (iter/tot_param_blocks)%adapt_every == 0;
-    adapt = adapt & ((iter/tot_param_blocks) < adapt_until);
-    if (iter < tot_param_blocks) adapt = false;
+    //bool adapt = (iter/tot_param_blocks)%adapt_every == 0;
+    //adapt = adapt & ((iter/tot_param_blocks) < adapt_until);
+    //if (iter < tot_param_blocks) adapt = false;
+    bool adapt = iter%adapt_every == 0;
+    adapt = adapt & (iter < adapt_until);
     return (adapt);
 }
 
@@ -94,7 +96,7 @@ int main (int argc, const char * argv[]) {
     
     Param parameters (n_vt, n_vt+n_nvt, total_params, params_vec, params_sd_vec);
     Data dataset (swab_data_v_vec, swab_data_nv_vec, ab_data_vec, swab_times_vec, n_vt, n_nvt, vaccN, unvaccN);
-    arma::mat results_mat (niter/sample_every, total_params+4);
+    arma::mat results_mat (niter/sample_every, n_param_blocks+4);
     parameters.initialize_file(filename);
     // // Calculate likelihood and prior of initial parameters
     parameters.initial_calc(dataset);
