@@ -6,10 +6,11 @@
 //  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
 //
 
+
 #include "param.hpp"
 
 double SMALLEST_NUMBER = -std::numeric_limits<float>::max()+100000.0;
-double STATIONARY_TIME = 18262.0;
+double STATIONARY_TIME = 300.0;
 boost::mt19937 rng(NULL);
 
 
@@ -99,14 +100,15 @@ void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix,
     int n_vacc = data["n_vacc"];
     arma::mat matrix_to_change(original_matrix);
     double tot_rate = 0.0;
-    double maxab;
+    double full_immunity;
+    double susceptibility;
     for (int i=0; i<n_tot; i++) {
-        double full_immunity = (double) (ind <= (n_vacc*p0[i]));
         matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
         matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier;
-        if (vacc & (i<n_vtypes)) {
-            maxab = data.get_max_ab(i);
-            matrix_to_change(0, i+1) *= full_immunity*(maxab-data.get_ab(ind, i))/maxab;//*ind_frailty_SI[(i-1)*n_vacc+ind]
+        if (vacc & (i<n_vtypes) & (multiplier < STATIONARY_TIME)) {
+            full_immunity = (double) (ind >= (n_vacc*p0[i]));
+            susceptibility = (5.0-data.get_ab(ind, i));
+            matrix_to_change(0, i+1) *= thetaSI[i]*full_immunity*susceptibility;//*ind_frailty_SI[(i-1)*n_vacc+ind]
             matrix_to_change(i+1, 0) *= thetaIS[i];//*full_immunity;//*ind_frailty_IS[ind];
         }
         if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
@@ -115,24 +117,29 @@ void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix,
     matrix_to_change(0, 0) = -tot_rate;
     for (int row_i=1; row_i<=n_tot; row_i++) {
         tot_rate = matrix_to_change(row_i, 0);
-        double full_immunity=1.0;
-        if (row_i<=n_vtypes) full_immunity = (double) (ind <= (n_vacc*p0[row_i-1]));
         for (int col_i=1; col_i<=n_tot; col_i++) {
             if (row_i!=col_i) {
-                matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier*interaction;
-                if (vacc & (col_i<=n_vtypes)) {
-                    maxab = data.get_max_ab(col_i-1);
-                    matrix_to_change(row_i, col_i) *= full_immunity*(maxab-data.get_ab(ind, col_i-1))/maxab;//*ind_frailty_SI[(col_i-1)*n_vacc+ind]
+                matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier;
+                if (vacc & (col_i<=n_vtypes) & (multiplier < STATIONARY_TIME)) {
+                    full_immunity = (double) (ind >= (n_vacc*p0[col_i-1]));
+                    susceptibility = (5.0-data.get_ab(ind, col_i-1));
+                    matrix_to_change(row_i, col_i) *= thetaSI[col_i-1]*full_immunity*susceptibility;//*ind_frailty_SI[(col_i-1)*n_vacc+ind]
                 }
                 if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
                 tot_rate += matrix_to_change(row_i, col_i);
             }
-            else matrix_to_change(row_i, col_i) = 0.0;
         }
         matrix_to_change(row_i, row_i) = -tot_rate;
     }
     try {
+//        double *a = matrix_to_change.memptr();
+//        double *b = r8mat_expm1(n_tot+1, a);
+//        for (int i=0; i<(n_tot+1)*(n_tot+1); i++) {
+//            original_matrix[i] = b[i];
+//        }
         original_matrix = arma::expmat(matrix_to_change);
+//        print_matrix(original_matrix, "matrix_exp.txt", n_tot);
+//        print_matrix(matrix_to_change, "matrix.txt", n_tot);
     }
     catch(...) {
         print_matrix(matrix_to_change, "matrix.txt", n_tot);
@@ -234,7 +241,7 @@ double Param::calc_lprior (int block_i) const {
     }
     else if (block_i==7) {
         boost::math::beta_distribution<double>density(200.0, 300.0);// mean = 0.4, sd = 0.2
-        newlprior += log(boost::math::pdf(density, interaction));
+        //newlprior += log(boost::math::pdf(density, interaction));
     }
     if (!std::isfinite(newlprior)) newlprior = SMALLEST_NUMBER;
     return (newlprior);
@@ -361,6 +368,11 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
     boost::variate_generator<boost::mt19937&, boost::uniform_01<> > runif(rng, zeroone);
     double z = log(runif());
     double ratio = (newllik+newlprior-llik-lprior);
+    boost::math::normal_distribution<double>norm(0.0,1.0);
+    double temp1 = boost::math::cdf(norm, -tempparam[0]/proposal_sd[block_ptr]);
+    double temp2 = boost::math::cdf(norm, -lambda[0]/proposal_sd[block_ptr]);
+    double K = (1.0-temp1)/(1.0-temp2);
+    ratio += log(K);
     bool reject = z > ratio;
     if (reject) {
         alter_param (true);

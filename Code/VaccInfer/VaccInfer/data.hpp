@@ -20,7 +20,7 @@ class Data {
     std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
     std::vector <double> lambda_reduction; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
     int n_vacc, n_nvacc, n_swabs, n_vtypes, n_nvtypes,n_tot;
-    std::vector<double> mean_ab, max_ab;
+    std::vector<double> mean_ab, max_ab, min_ab;
 public:
     Data (std::vector<double>, std::vector<double>, std::vector<double>,
           std::vector <double>, int, int, int, int);
@@ -31,6 +31,7 @@ public:
     double get_ab (int, int);
     double get_mean_ab (int);
     double get_max_ab (int);
+    double get_min_ab (int);
 };
 
 #endif /* data_hpp */

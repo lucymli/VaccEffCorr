@@ -26,13 +26,16 @@ Data::Data (std::vector<double> vdata, std::vector<double>nvdata,
     n_tot = n_vtypes + n_nvtypes;
     for (int i=0; i<n_vtypes; i++) {
         double max_val = abdata[i*n_vacc];
+        double min_val = abdata[i*n_vacc];
         double mean_val = max_val;
         for (int ind_i=1; ind_i<n_nvacc; ind_i++) {
             double curr_val = abdata[i*n_vacc+ind_i];
             mean_val += curr_val;
             if (curr_val > max_val) max_val = curr_val;
+            if (curr_val < min_val) min_val = curr_val;
         }
         max_ab.push_back(max_val);
+        min_ab.push_back(min_val);
         mean_ab.push_back(mean_val/(double)n_vacc);
     }
 }
@@ -67,5 +70,9 @@ double Data::get_mean_ab (int type_i) {
 
 double Data::get_max_ab (int type_i) {
     return(max_ab[type_i]);
+}
+
+double Data::get_min_ab (int type_i) {
+    return(min_ab[type_i]);
 }
 
