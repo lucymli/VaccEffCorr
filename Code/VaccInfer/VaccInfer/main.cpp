@@ -17,12 +17,13 @@
 #include "param.hpp"
 
 
-bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_param_blocks) {
+bool adapt_this_iter (int iter, int adapt_every, int adapt_until, int tot_params) {
     //bool adapt = (iter/tot_param_blocks)%adapt_every == 0;
     //adapt = adapt & ((iter/tot_param_blocks) < adapt_until);
     //if (iter < tot_param_blocks) adapt = false;
-    bool adapt = iter%adapt_every == 0;
-    adapt = adapt & (iter < adapt_until);
+    if ((iter/tot_params) < adapt_every) return (false);
+    bool adapt = (iter/tot_params)%adapt_every == 0;
+    adapt = adapt & (iter < (adapt_until*tot_params));
     return (adapt);
 }
 
@@ -55,20 +56,13 @@ int main (int argc, const char * argv[]) {
     int adapt_until = std::stoi(line);
     infile >> line;
     std::string filename = line; // filename for output
-    infile >> line;
-    int n_param_blocks = std::stoi(line);
-    std::vector <int> block_sizes;
-    for (int i=0; i<n_param_blocks; i++) {
-        infile >> line;
-        block_sizes.push_back(std::stoi(line));
-    }
     std::vector <double> params_vec;
     for (int i=0; i<total_params; i++) {
         infile >> line;
         params_vec.push_back(std::stod(line));
     }
     std::vector <double> params_sd_vec;
-    for (int i=0; i<n_param_blocks; i++) {
+    for (int i=0; i<total_params; i++) {
         infile >> line;
         params_sd_vec.push_back(std::stod(line));
     }
@@ -78,9 +72,11 @@ int main (int argc, const char * argv[]) {
         swab_data_v_vec.push_back(std::stod(line));
     }
     std::vector <double> swab_data_nv_vec; // nrow=total number of un-accinated, ncol=swabs
-    for (int i=0; i<n_swabs*unvaccN; i++) {
-        infile >> line;
-        swab_data_nv_vec.push_back(std::stod(line));
+    if (unvaccN > 0) {
+        for (int i=0; i<n_swabs*unvaccN; i++) {
+            infile >> line;
+            swab_data_nv_vec.push_back(std::stod(line));
+        }
     }
     std::vector <double> ab_data_vec; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
     for (int i=0; i<vaccN*n_vt; i++) {
@@ -96,7 +92,7 @@ int main (int argc, const char * argv[]) {
     
     Param parameters (n_vt, n_vt+n_nvt, total_params, params_vec, params_sd_vec);
     Data dataset (swab_data_v_vec, swab_data_nv_vec, ab_data_vec, swab_times_vec, n_vt, n_nvt, vaccN, unvaccN);
-    arma::mat results_mat (niter/sample_every, n_param_blocks+4);
+    arma::mat results_mat (niter/sample_every, total_params+4);
     parameters.initialize_file(filename);
     // // Calculate likelihood and prior of initial parameters
     parameters.initial_calc(dataset);
@@ -105,7 +101,7 @@ int main (int argc, const char * argv[]) {
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
     for (int iter=1; iter<niter; iter++) {
-        adapt_bool = adapt_this_iter(iter, adapt_every, adapt_until, n_param_blocks);
+        adapt_bool = adapt_this_iter(iter, adapt_every, adapt_until, total_params);
         parameters.mcmc_move(dataset, adapt_bool, optimal);
         // Save parameter values
         if ((iter%sample_every)==0) {

@@ -16,6 +16,7 @@
 #include <boost/random/random_device.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/math/distributions.hpp>
+#include <omp.h>
 #include "data.hpp"
 
 class Param {
