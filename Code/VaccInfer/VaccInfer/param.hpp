@@ -37,7 +37,7 @@ public:
     // a new parameter is proposed or rejected, if the parameter affects the transition
     // rates. currently include lambda, mu, and interaction between serotypes
     void next_block ();
-    void calc_expm(bool, int, Data, arma::mat &, double);
+//    void calc_expm(bool, int, Data, arma::mat &, arma::mat &, double);
     void get_rand_frailty (Data &);
     void initial_calc(Data);
     double calc_llik (Data);

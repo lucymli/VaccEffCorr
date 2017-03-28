@@ -95,15 +95,15 @@ void Param::next_block() {
     if (block_ptr >= (2*n_tot+2*n_vtypes+1)) block_ptr = 0;
 }
 
-void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, double multiplier) {
+void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::mat& transitions1, double multiplier, int n_tot, int n_vtypes, std::vector<double> p0, std::vector <double> thetaSI) {
     int n_vacc = data["n_vacc"];
-    arma::mat matrix_to_change(transitions);
+    arma::mat matrix_to_change(transitions1);
     double tot_rate = 0.0;
     double full_immunity;
     double susceptibility;
     for (int i=0; i<n_tot; i++) {
-        matrix_to_change(0, i+1) = transitions(0, i+1)*multiplier;
-        matrix_to_change(i+1, 0) = transitions(i+1, 0)*multiplier;
+        matrix_to_change(0, i+1) = transitions1(0, i+1)*multiplier;
+        matrix_to_change(i+1, 0) = transitions1(i+1, 0)*multiplier;
         if (vacc & (i<n_vtypes) & (multiplier < STATIONARY_TIME)) {
             full_immunity = 1.0;//(double) (ind >= (n_vacc*p0[i]));
             susceptibility = data.get_ab(ind, i);
@@ -118,7 +118,7 @@ void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix,
         tot_rate = matrix_to_change(row_i, 0);
         for (int col_i=1; col_i<=n_tot; col_i++) {
             if (row_i!=col_i) {
-                matrix_to_change(row_i, col_i) = transitions(row_i, col_i)*multiplier;
+                matrix_to_change(row_i, col_i) = transitions1(row_i, col_i)*multiplier;
                 if (vacc & (col_i<=n_vtypes) & (multiplier < STATIONARY_TIME)) {
                     full_immunity =1.0;// (double) (ind >= (n_vacc*p0[col_i-1]));
                     susceptibility = data.get_ab(ind, col_i-1);
@@ -131,83 +131,99 @@ void Param::calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix,
         matrix_to_change(row_i, row_i) = -tot_rate;
     }
     try {
-//        double *a = matrix_to_change.memptr();
-//        double *b = r8mat_expm1(n_tot+1, a);
-//        for (int i=0; i<(n_tot+1)*(n_tot+1); i++) {
-//            original_matrix[i] = b[i];
-//        }
         original_matrix = arma::expmat(matrix_to_change);
 //        print_matrix(original_matrix, "matrix_exp.txt", n_tot);
 //        print_matrix(matrix_to_change, "matrix.txt", n_tot);
     }
     catch(...) {
+        #pragma omp critical
         print_matrix(matrix_to_change, "matrix.txt", n_tot);
         std::cout << "EXPM failed" << std::endl;
     }
 }
 
 double Param::calc_llik (Data data) {
-    double newllik = 0.0;
-    int position1, position2;
-//    std::vector <Data> data_vec;
-//    std::vector <arma::mat> transitions_t_vec;
-//    std::vector <arma::mat> stationary_prev_vec;
-//    for (int i=0; i<4; ++i) {
-//        data_vec.push_back(data);
-//        transitions_t_vec.push_back(transitions_t);
-//        stationary_prev_vec.push_back(stationary_prev);
-//    }
-//#pragma omp parallel for schedule(static, 1)
-//    for (int tn=0; tn<omp_get_num_threads(); tn++) {
-        for (int i=0; i<data["n_vacc"]; i++) {
+    int total_threads = omp_get_num_threads();
+    std::vector<double>newllik(total_threads, 0.0);
+    std::vector <Data> data_vec;
+    std::vector <arma::mat> transitions_t_vec;
+    std::vector <arma::mat> stationary_prev_vec;
+    std::vector <arma::mat> transitions_vec;
+    std::vector <std::vector <double> > p0_vec;
+    std::vector <std::vector <double> > thetaSI_vec;
+    for (int i=0; i<4; ++i) {
+        data_vec.push_back(data);
+        transitions_t_vec.push_back(transitions_t);
+        transitions_vec.push_back(transitions);
+        stationary_prev_vec.push_back(stationary_prev);
+        p0_vec.push_back(p0);
+        thetaSI_vec.push_back(thetaSI);
+    }
+#pragma omp parallel for schedule(static, 1)
+    for (int tn=0; tn<total_threads; tn++) {
+//        for (int i=0; i<data_vec[tn]["n_vacc"]; i++) {
+        for (int i=0; i<328; i++) {
+            int position1, position2;
 //            tn = omp_get_thread_num();
             /*For each individual, calculate the likelihood of observations*/
-            position1 = (int) data.get_swab_v(i, 0);
+            position1 = (int) data_vec[tn].get_swab_v(i, 0);
             // calculate the probability of first swab results, i.e. at stationarity
             try{
-                calc_expm(true, i, data, stationary_prev, STATIONARY_TIME);
+                calc_expm(true, i, data_vec[tn], stationary_prev_vec[tn], transitions_vec[tn], STATIONARY_TIME, n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn]);
+                newllik[tn] += log(stationary_prev_vec[tn](0, position1));
             }
             catch (...) {
-                return (SMALLEST_NUMBER);
+#pragma omp critical
+                newllik[tn] += SMALLEST_NUMBER;
+                break;
+                //return (SMALLEST_NUMBER);
             }
-            newllik += log(stationary_prev(0, position1));
             for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
                 try{
-                    calc_expm(true, i, data, transitions_t, data.get_swab_time(time_step));
+                    calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn]);
                 }
                 catch (...) {
-                    return (SMALLEST_NUMBER);
+#pragma omp critical
+                    newllik[tn] += SMALLEST_NUMBER;
+                    break;
+//                    return (SMALLEST_NUMBER);
                 }
-                position2 = (int) data.get_swab_v(i, time_step);
-                newllik += log(transitions_t(position1,position2));
-                // Rcout << "i: "<< i << " time_step: " << time_step << " lik: " << newllik << std::endl;
+                position2 = (int) data_vec[tn].get_swab_v(i, time_step);
+                newllik[tn] += log(transitions_t_vec[tn](position1,position2));
                 position1 = position2;
             }
         }
+    }
+//    try{
+//        calc_expm(false, 0, data, stationary_prev, STATIONARY_TIME);
 //    }
-    try{
-        calc_expm(false, 0, data, stationary_prev, STATIONARY_TIME);
+//    catch (...) {
+//        return (SMALLEST_NUMBER);
+//    }
+//    for (int i=0; i<data["n_nvacc"]; i++) {
+//        position1 = (int) data.get_swab_nv(i, 0);
+//        newllik += log(stationary_prev(0, position1));
+//        for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
+//            try{
+//                calc_expm(false, i, data, transitions_t, data.get_swab_time(time_step));
+//            }
+//            catch (...) {
+//                return (SMALLEST_NUMBER);
+//            }
+//            position2 = (int) data.get_swab_nv(i, time_step);
+//            newllik += log(transitions_t(position1, position2));
+//            position1 = position2;
+//        }
+//    }
+//    if (!std::isfinite(newllik)) newllik = SMALLEST_NUMBER;
+    double sum_newllik = 0.0;
+    for (int i=0; i!=newllik.size(); ++i) {
+        if(!std::isfinite(newllik[i])) return (SMALLEST_NUMBER);
+        else if (newllik[i]==SMALLEST_NUMBER) return (SMALLEST_NUMBER);
+        else sum_newllik += newllik[i];
+        std::cout << sum_newllik << std::endl;
     }
-    catch (...) {
-        return (SMALLEST_NUMBER);
-    }
-    for (int i=0; i<data["n_nvacc"]; i++) {
-        position1 = (int) data.get_swab_nv(i, 0);
-        newllik += log(stationary_prev(0, position1));
-        for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-            try{
-                calc_expm(false, i, data, transitions_t, data.get_swab_time(time_step));
-            }
-            catch (...) {
-                return (SMALLEST_NUMBER);
-            }
-            position2 = (int) data.get_swab_nv(i, time_step);
-            newllik += log(transitions_t(position1, position2));
-            position1 = position2;
-        }
-    }
-    if (!std::isfinite(newllik)) newllik = SMALLEST_NUMBER;
-    return (newllik);
+    return (sum_newllik);
 }
 
 double Param::calc_lprior (int block_i) const {
@@ -238,7 +254,7 @@ double Param::calc_lprior (int block_i) const {
 //    }
     else if (block_i<n_tot*2+n_vtypes*2) {
 //        for (auto i=p0.begin(); i<p0.end(); i++) {
-            boost::math::uniform_distribution<>density(-10, 1.0);
+            boost::math::uniform_distribution<>density(-10, 10.0);
             newlprior += log(boost::math::pdf(density, p0[block_i-n_tot*2-n_vtypes]));
 //        }
     }
@@ -272,10 +288,12 @@ double Param::uni_propose (double oldval, double sd, int ntries) const {
     boost::normal_distribution<> nd(oldval, sd);
     boost::variate_generator<boost::mt19937&, boost::normal_distribution<> > var_nor(rng, nd);
     double newval = var_nor();
-    while (newval < 0) {
-        newval = var_nor();
-        ntries--;
-        if (ntries < 0) break;
+    if (ntries > 0) {
+        while (newval < 0) {
+            newval = var_nor();
+            ntries--;
+            if (ntries < 0) break;
+        }
     }
     return (newval);
 }
@@ -381,11 +399,11 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
     boost::variate_generator<boost::mt19937&, boost::uniform_01<> > runif(rng, zeroone);
     double z = log(runif());
     double ratio = (newllik+newlprior-llik-lprior);
-    boost::math::normal_distribution<double>norm(0.0,1.0);
-    double temp1 = boost::math::cdf(norm, -previous_val/proposal_sd[block_ptr]);
-    double temp2 = boost::math::cdf(norm, -(*this)[block_ptr]/proposal_sd[block_ptr]);
-    double K = (1.0-temp1)/(1.0-temp2);
-    ratio += log(K);
+//    boost::math::normal_distribution<double>norm(0.0,1.0);
+//    double temp1 = boost::math::cdf(norm, -previous_val/proposal_sd[block_ptr]);
+//    double temp2 = boost::math::cdf(norm, -(*this)[block_ptr]/proposal_sd[block_ptr]);
+//    double K = (1.0-temp1)/(1.0-temp2);
+//    ratio += log(K);
     bool reject = z > ratio;
     if (reject) {
         alter_param (true);
