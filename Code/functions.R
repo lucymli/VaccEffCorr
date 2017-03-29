@@ -13,7 +13,7 @@ is_fully_protected <- function (dataset, type.ids) {
 }
 
 simulate_data <- function (
-  N, # even number of participants. Split between the two arms 50:50
+  Nv, Nnv, # numbers of participants in the vaccine/nonvaccine arms
   ntypes, # number of serotypes in the vaccine
   ntot, # total number of serotypes including those not in vaccines
   nswabs, # number of times nasopharyngeal swabs were taken
@@ -33,45 +33,47 @@ simulate_data <- function (
   ###
   require(parallel)
   require(Matrix)
-  patient.data <- data.frame(ID=1:N, vacc=rep(c(TRUE, FALSE), each=N/2))
+  N <- Nv + Nnv
+  patient.data <- data.frame(ID=1:(N), vacc=c(rep(TRUE, Nv), rep(FALSE, Nnv)))
   # The rates of clearance or infection by another serotype
-  rates.matrix <- replicate(ntot, lambda*interaction)*(1-diag(ntot))
+  rates.matrix <- t(replicate(ntot, lambda*interaction))
   rates.matrix <- rbind(c(-sum(lambda), lambda),
                         cbind(mu, rates.matrix))
+  for (i in 1:nrow(rates.matrix)) rates.matrix[i,i] <- -sum(rates.matrix[i,-i])
   # Individual heterogeneities in rates of acquisition(frailtySI)/clearance(frailtyIS) after being vaccinated
-  frailtySI.mat <- mapply(frailty_function, p0, frailtySI, N/2)
-  frailtyIS.mat <- mapply(frailty_function, 0, frailtyIS, N/2)
+  frailtySI.mat <- mapply(frailty_function, p0, frailtySI, Nv)
+  frailtyIS.mat <- mapply(frailty_function, 0, frailtyIS, Nv)
   ###
   ### Check that the frailty matrices have been simulated correctly
   # require(ggplot2); ggplot(reshape2::melt(frailtyIS.mat)) + geom_tile(aes(x=Var2, y=max(Var1)-Var1+1, colour=value))
   ###
   # Simulate data for each patient
   patient.data <- cbind(patient.data, do.call(rbind, mclapply(1:N, function (patient_i) {
+    # Construct vector for observations
+    observations <- rep(0, nswabs)
+    multinom.p <- expm(rates.matrix*60)[1, ]
+    # Simulate first observation
+    observations[1] <- which(rmultinom(N, 1, multinom.p)==1, arr.ind = TRUE)[patient_i, 1]
     rates.matrix_i <- rates.matrix
     # Modify rates for vaccinated individuals
     if (patient.data$vacc[patient_i]) {
       rates.matrix_i[2:(ntot+1), 2:(ntypes+1)] <- 
         sweep(rates.matrix[2:(ntot+1), 2:(ntypes+1)], MARGIN=2, thetaSI * frailtySI.mat[patient_i, ], `*`)
-      rates.matrix_i[2:(ntypes+1), 1] <- rates.matrix_i[2:(ntypes+1), 1] * frailtyIS.mat[patient_i, ] * thetaIS
+      rates.matrix_i[2:(ntypes+1), 1] <- rates.matrix_i[2:(ntypes+1), 1] * thetaIS #* frailtyIS.mat[patient_i, ]
     }
-    diag(rates.matrix_i)[-1] <- -rowSums(rates.matrix_i[-1, -1])
-    # Construct vector for observations
-    observations <- rep(0, nswabs)
-    multinom.p <- expm(rates.matrix_i*1e0)[1, ]
-    # Simulate first observation
-    observations[1] <- which(rmultinom(N, 1, multinom.p)==1, arr.ind = TRUE)[patient_i, 1]
+    for (i in 1:nrow(rates.matrix_i)) rates.matrix[i,i] <- -sum(rates.matrix_i[i,-i])
     P <- expm(rates.matrix_i*times[1])
     for (time.step in 2:nswabs) {
       observations[time.step] <- sample(ntot+1, 1, prob=P[observations[time.step-1], ])
       P <- expm(rates.matrix_i*(times[time.step]-times[time.step-1]))
     }
     return (observations-1)
-  }, mc.cores=detectCores())))
-  antibody.measurements <- t(sapply(1:(N/2), function (i) {
-    out <- (max(frailtySI.mat)-(frailtySI.mat[i, 1:ntypes]+rnorm(ntypes, 5, ab.noise)))/2+1
-    return (out)
-  }))
-  # antibody.measurements <- rbind(antibody.measurements, matrix(NA, nrow=N/2, ncol=ntypes))
+  }, mc.cores=4)))
+  # antibody.measurements <- t(sapply(1:(N/2), function (i) {
+  #   out <- (max(frailtySI.mat)-(frailtySI.mat[i, 1:ntypes]+rnorm(ntypes, 5, ab.noise)))/2+1
+  #   return (out)
+  # }))
+  antibody.measurements <- apply(frailtySI.mat, 2, function (x) (5-x))
   colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
   # patient.data <- data.frame(patient.data, antibody.measurements)
   return(list(vdata=patient.data[patient.data$vacc, ], 
@@ -166,5 +168,31 @@ plot_abdata <- function (abdata, p0, N) {
    xlab("IgG Concentration")
 }
 
+
+
+mcmc_infer <- function (params, params.sd, dataset, mcmc.options, 
+                        file.out=paste0("output", gsub("[^a-zA-Z0-9]", "", Sys.time()), ".txt"), 
+                        mcmc.program.dir="VaccInfer/VaccInfer",
+                        program.name="mcmc_infer",
+                        input.file="input.txt",
+                        run.program=FALSE) {
+  selected.params <- params[c("lambda", "mu", "thetaSI", "p0", "interaction")]
+  tot_params <- length(unlist(selected.params))#-params$ntypes
+  param.vec <- paste(unlist(selected.params), collapse=" ")
+  pre.vec <- paste(c(vaccN=params$Nv, unvaccN=params$Nnv, n_vt=params$ntypes, n_nvt=params$ntot-params$ntypes,
+    total_params=tot_params, n_swabs=params$nswabs, unlist(mcmc.options), file.out 
+    #n_param_blocks=length(selected.params), sapply(selected.params, length)
+    ), collapse=" ")
+  param.sd.vec <- paste(unlist(params.sd), collapse=" ")
+  data.vec <- paste(unlist(lapply(c(lapply(dataset[1:2], `[`, , -1:-2), dataset[3]), c)), collapse=" ")
+  swab.times.vec <- paste(params$times, collapse=" ")
+  input.vec <- paste(pre.vec, param.vec, param.sd.vec, data.vec, swab.times.vec, collapse=" ")
+  cat(c(gsub(" ", "\n", input.vec),"\n"), file=input.file)
+  command <- paste0(mcmc.program.dir, "/./", program.name, " ", input.file)
+  if (run.program) {
+    output <- system(command, intern=TRUE, wait=TRUE)
+  }
+  return (command)
+}
 
 

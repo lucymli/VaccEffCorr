@@ -1,20 +1,22 @@
-#setwd("~/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Code")
+#setwd("~/Dropbox (hsph.harvard.edu)/Research/Projects/Vaccine/VaccEffCorr/Code")
 source("functions.R")
-ntypes = 7
-ntot = 10
+ntypes = 13
+ntot = 31
 day.units = 1
-nswabs = 3
-sim.params <- list(N=200, ntypes=ntypes, ntot=ntot, nswabs=nswabs,
+nswabs = 6
+sim.params <- list(Nv=200, Nnv=200, ntypes=ntypes, ntot=ntot, nswabs=nswabs,
                    times=(c(2, 7, 12, 13, 18, 24)[1:nswabs])*30/day.units,
-     lambda=c(rlnorm(ntypes, log(0.036696), 2e-1), rlnorm(ntot-ntypes, log(0.016696), 2e-1))*day.units,
+     lambda=c(rlnorm(ntypes, log(0.0003696), 2e-1), rlnorm(ntot-ntypes, log(0.0003696), 2e-1))*day.units,
      mu=rlnorm(ntot, log(0.016696), 2e-1)*day.units,
-     thetaSI=rnorm(ntypes, 0.3505, 0.06),
-     thetaIS=1/rnorm(ntypes, 1, 0.06)[1:ntypes],
+     thetaSI=rnorm(ntypes, 0.2505, 0.06),
+     thetaIS=rep(1, ntypes),#1/rnorm(ntypes, 1, 0.06)[1:ntypes],
      p0=rep(0, ntypes),#abs(rnorm(ntypes, 0.5, 0.05)),
-     frailtySI=0.2, frailtyIS=0.2, interaction=0.7)
+     frailtySI=0.2, frailtyIS=0.2, interaction=0.99)
 sim.params.vec <- unlist(sim.params[-1:-5])
-sim.params.sd <- list(lambda=mean(sim.params$lambda)*0.01, mu=mean(sim.params$mu)*0.01, thetaSI=0.3, thetaIS=0.1, p0=0.2,
-                   frailtySI=0.2, frailtyIS=0.2, interaction=0.2)
+sim.params.sd <- list(lambda=rep(mean(sim.params$lambda)*0.01, ntot), 
+                      mu=rep(mean(sim.params$mu)*0.01, ntot), 
+                      #thetaSI=0.3, thetaIS=0.1, p0=0.2, frailtySI=0.2, frailtyIS=0.2, 
+                      interaction=0.2)
 sim.params$ab.noise <- runif(sim.params$ntypes, 0.0, 0.05)
 
 theta.SI.agr <- with(sim.params, get_agr_SI(lambda[1:ntypes], thetaSI))
@@ -29,16 +31,14 @@ theta.IS.agr <- with(sim.params, get_agr_IS(lambda, mu, thetaSI, thetaIS, ntypes
 # apply(variability, 1, sd)
 set.seed(2100)
 sim.data <- do.call(simulate_data, sim.params)
-mcmc_options <- list(niter=5000, sample_every=100, adapt_optimal=0.23, adapt_every=10,
-                  adapt_until=100)
-save.image(file="sim.data.RData")
-
+mcmc_options <- list(niter="100000", sample_every=50, adapt_optimal=0.23, adapt_every=10,
+                  adapt_until="5000")
 
 mcmc_infer (sim.params, sim.params.sd, sim.data, mcmc_options, 
             mcmc.program.dir="VaccInfer/VaccInfer", program.name="mcmc_infer",
             run.program = FALSE)
 
-
+save.image(file="sim.data.RData")
 
 
 
@@ -67,7 +67,7 @@ if (FALSE) {
   #   ylab("Antibody levels") + xlab("Swab #")
   
   ### Real Data
-  ab.data <- readRDS("/Users/Lucy/Dropbox (VERG)/Research/Projects/Vaccine/VaccEffCorr/Documents/Pfizer/final_version/data.rds")
+  ab.data <- readRDS("/Users/Lucy/Dropbox (hsph.harvard.edu)/Research/Projects/Vaccine/VaccEffCorr/Documents/Pfizer/final_version/data.rds")
   rbind(colSums(subset(ab.data, rtrtn=="PCV13")[, paste0("nvt.v", 1:8)])/nrow(subset(ab.data, rtrtn=="PCV13")),
         colSums(subset(ab.data, rtrtn=="PCV13")[, paste0("vt.v", 1:8)])/nrow(subset(ab.data, rtrtn=="PCV13")))
   ### Simulated Data

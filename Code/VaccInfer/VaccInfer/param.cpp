@@ -161,8 +161,8 @@ double Param::calc_llik (Data data) {
     }
 #pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<total_threads; tn++) {
-//        for (int i=0; i<data_vec[tn]["n_vacc"]; i++) {
-        for (int i=0; i<328; i++) {
+        for (int i=tn; i<data_vec[tn]["n_vacc"]; i+=total_threads) {
+//        for (int i=tn; i<100; i+=total_threads) {
             int position1, position2;
 //            tn = omp_get_thread_num();
             /*For each individual, calculate the likelihood of observations*/
@@ -179,6 +179,7 @@ double Param::calc_llik (Data data) {
                 //return (SMALLEST_NUMBER);
             }
             for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
+//                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << std::endl;
                 try{
                     calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn]);
                 }
@@ -242,7 +243,7 @@ double Param::calc_lprior (int block_i) const {
     }
     else if (block_i<n_tot*2+n_vtypes) {
         for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) {
-            boost::math::uniform_distribution<>density(-10.0, 10.0);
+            boost::math::uniform_distribution<>density(-1.0, 5.0);
             newlprior += log(boost::math::pdf(density, thetaSI[block_i-n_tot*2]));
         }
     }
@@ -254,7 +255,7 @@ double Param::calc_lprior (int block_i) const {
 //    }
     else if (block_i<n_tot*2+n_vtypes*2) {
 //        for (auto i=p0.begin(); i<p0.end(); i++) {
-            boost::math::uniform_distribution<>density(-10, 10.0);
+            boost::math::uniform_distribution<>density(0.0, 2.0);
             newlprior += log(boost::math::pdf(density, p0[block_i-n_tot*2-n_vtypes]));
 //        }
     }
