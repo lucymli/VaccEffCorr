@@ -102,7 +102,7 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
     double tot_rate = 0.0;
     double full_immunity;
     double susceptibility;
-    if (use_mean_ab) susceptibility = data.get_mean_ab(ind);
+    if (use_mean_ab) susceptibility = data.get_mean_ab_ind(ind);
     for (int i=0; i<n_tot; i++) {
         matrix_to_change(0, i+1) = transitions1(0, i+1)*multiplier;
         matrix_to_change(i+1, 0) = transitions1(i+1, 0)*multiplier;
