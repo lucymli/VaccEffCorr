@@ -55,6 +55,8 @@ int main (int argc, const char * argv[]) {
     infile >> line;
     int adapt_until = std::stoi(line);
     infile >> line;
+    bool use_mean_ab = (bool)std::stoi(line);
+    infile >> line;
     std::string filename = line; // filename for output
     std::vector <double> params_vec;
     for (int i=0; i<total_params; i++) {
@@ -90,7 +92,8 @@ int main (int argc, const char * argv[]) {
         swab_times_vec.push_back(std::stod(line));
     }
     
-    Param parameters (n_vt, n_vt+n_nvt, total_params, params_vec, params_sd_vec);
+    
+    Param parameters (n_vt, n_vt+n_nvt, total_params, params_vec, params_sd_vec, use_mean_ab);
     Data dataset (swab_data_v_vec, swab_data_nv_vec, ab_data_vec, swab_times_vec, n_vt, n_nvt, vaccN, unvaccN);
     arma::mat results_mat (niter/sample_every, total_params+4);
     parameters.initialize_file(filename);

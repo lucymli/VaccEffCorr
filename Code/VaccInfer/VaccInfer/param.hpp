@@ -31,8 +31,9 @@ class Param {
     std::vector <double> lprior_vec; // prior for each block
     arma::mat transitions, stationary_prev, transitions_t;
     std::vector <double> ind_frailty_SI, ind_frailty_IS;
+    bool use_mean_ab;
 public:
-    Param (int, int, int, std::vector<double>, std::vector<double>);
+    Param (int, int, int, std::vector<double>, std::vector<double>, bool);
     void update_transitions(); // transition rates matrix should be altered every time
     // a new parameter is proposed or rejected, if the parameter affects the transition
     // rates. currently include lambda, mu, and interaction between serotypes

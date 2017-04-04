@@ -29,7 +29,7 @@ void print_matrix (arma::mat & mat_to_output, std::string filename, int mat_dim)
 
 
 Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
-              std::vector <double> input_var) {
+              std::vector <double> input_var, bool mean_ab) {
     n_vtypes = ntypes;
     n_tot = ntot;
     n_nvtypes = n_tot-n_vtypes;
@@ -66,6 +66,7 @@ Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
     transitions = arma::zeros(n_tot+1, n_tot+1);
     stationary_prev = arma::zeros(n_tot+1, n_tot+1);
     transitions_t = arma::zeros(n_tot+1, n_tot+1);
+    use_mean_ab = mean_ab;
     update_transitions();
 }
 
@@ -95,18 +96,19 @@ void Param::next_block() {
     if (block_ptr >= (2*n_tot+2*n_vtypes+1)) block_ptr = 0;
 }
 
-void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::mat& transitions1, double multiplier, int n_tot, int n_vtypes, std::vector<double> p0, std::vector <double> thetaSI) {
+void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::mat& transitions1, double multiplier, int n_tot, int n_vtypes, std::vector<double> p0, std::vector <double> thetaSI, bool use_mean_ab) {
     int n_vacc = data["n_vacc"];
     arma::mat matrix_to_change(transitions1);
     double tot_rate = 0.0;
     double full_immunity;
     double susceptibility;
+    if (use_mean_ab) susceptibility = data.get_mean_ab(ind);
     for (int i=0; i<n_tot; i++) {
         matrix_to_change(0, i+1) = transitions1(0, i+1)*multiplier;
         matrix_to_change(i+1, 0) = transitions1(i+1, 0)*multiplier;
         if (vacc & (i<n_vtypes) & (multiplier < STATIONARY_TIME)) {
             full_immunity = 1.0;//(double) (ind >= (n_vacc*p0[i]));
-            susceptibility = data.get_ab(ind, i);
+            if (!use_mean_ab) susceptibility = data.get_ab(ind, i);
             matrix_to_change(0, i+1) *= p0[i]-susceptibility*thetaSI[i];//*full_immunity*ind_frailty_SI[(i-1)*n_vacc+ind]
             matrix_to_change(i+1, 0) *= 1.0;//thetaIS[i];//*full_immunity;//*ind_frailty_IS[ind];
         }
@@ -121,7 +123,7 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
                 matrix_to_change(row_i, col_i) = transitions1(row_i, col_i)*multiplier;
                 if (vacc & (col_i<=n_vtypes) & (multiplier < STATIONARY_TIME)) {
                     full_immunity =1.0;// (double) (ind >= (n_vacc*p0[col_i-1]));
-                    susceptibility = data.get_ab(ind, col_i-1);
+                    if (!use_mean_ab) susceptibility = data.get_ab(ind, i);
                     matrix_to_change(row_i, col_i) *= p0[col_i-1]-susceptibility*thetaSI[col_i-1];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
                 }
                 if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
@@ -169,7 +171,7 @@ double Param::calc_llik (Data data) {
             position1 = (int) data_vec[tn].get_swab_v(i, 0);
             // calculate the probability of first swab results, i.e. at stationarity
             try{
-                calc_expm(true, i, data_vec[tn], stationary_prev_vec[tn], transitions_vec[tn], STATIONARY_TIME, n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn]);
+                calc_expm(true, i, data_vec[tn], stationary_prev_vec[tn], transitions_vec[tn], STATIONARY_TIME, n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn], use_mean_ab);
                 newllik[tn] += log(stationary_prev_vec[tn](0, position1));
             }
             catch (...) {
@@ -181,7 +183,7 @@ double Param::calc_llik (Data data) {
             for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
 //                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << std::endl;
                 try{
-                    calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn]);
+                    calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn], use_mean_ab);
                 }
                 catch (...) {
 #pragma omp critical
