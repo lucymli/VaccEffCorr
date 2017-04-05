@@ -178,7 +178,7 @@ mcmc_infer <- function (params, params.sd, dataset, mcmc.options,
                         run.program=FALSE) {
   selected.params <- params[c("lambda", "mu", "thetaSI", "p0", "interaction")]
   tot_params <- length(unlist(selected.params))#-params$ntypes
-  param.vec <- paste(unlist(selected.params), collapse=" ")
+  param.vec <- paste(format(unlist(selected.params), scientific=FALSE), collapse=" ")
   pre.vec <- paste(c(vaccN=params$Nv, unvaccN=params$Nnv, n_vt=params$ntypes, n_nvt=params$ntot-params$ntypes,
     total_params=tot_params, n_swabs=params$nswabs, unlist(mcmc.options), file.out 
     #n_param_blocks=length(selected.params), sapply(selected.params, length)

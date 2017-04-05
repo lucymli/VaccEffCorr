@@ -145,7 +145,7 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
 }
 
 double Param::calc_llik (Data data) {
-    int total_threads = 8;//omp_get_num_threads();
+    int total_threads = omp_get_num_threads();
 //    std::cout << total_threads << " threads" << std::endl;
     std::vector<double>newllik(total_threads, 0.0);
     std::vector <Data> data_vec;
