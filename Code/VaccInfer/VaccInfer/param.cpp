@@ -145,7 +145,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
 }
 
 double Param::calc_llik (Data data) {
-    int total_threads = omp_get_num_threads();
+    int total_threads = 8;//omp_get_num_threads();
+//    std::cout << total_threads << " threads" << std::endl;
     std::vector<double>newllik(total_threads, 0.0);
     std::vector <Data> data_vec;
     std::vector <arma::mat> transitions_t_vec;
@@ -164,7 +165,7 @@ double Param::calc_llik (Data data) {
 #pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<total_threads; tn++) {
         for (int i=tn; i<data_vec[tn]["n_vacc"]; i+=total_threads) {
-//        for (int i=tn; i<100; i+=total_threads) {
+//        for (int i=tn; i<200; i+=total_threads) {
             int position1, position2;
 //            tn = omp_get_thread_num();
             /*For each individual, calculate the likelihood of observations*/
@@ -181,7 +182,7 @@ double Param::calc_llik (Data data) {
                 //return (SMALLEST_NUMBER);
             }
             for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-//                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << std::endl;
+//                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << " Ab: " << data_vec[tn].get_ab(i, 0)<< std::endl;
                 try{
                     calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn], use_mean_ab);
                 }
@@ -224,7 +225,6 @@ double Param::calc_llik (Data data) {
         if(!std::isfinite(newllik[i])) return (SMALLEST_NUMBER);
         else if (newllik[i]==SMALLEST_NUMBER) return (SMALLEST_NUMBER);
         else sum_newllik += newllik[i];
-        std::cout << sum_newllik << std::endl;
     }
     return (sum_newllik);
 }
