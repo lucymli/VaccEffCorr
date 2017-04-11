@@ -244,10 +244,10 @@ double Param::calc_lprior (int block_i) const {
 //        }
     }
     else if (block_i<n_tot*2+n_vtypes) {
-        for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) {
+//        for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) {
             boost::math::uniform_distribution<>density(-1.0, 5.0);
             newlprior += log(boost::math::pdf(density, thetaSI[block_i-n_tot*2]));
-        }
+//        }
     }
 //    else if (block_i==3) {
 //        for (auto i=thetaIS.begin(); i<thetaIS.end(); i++) {
