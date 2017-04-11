@@ -94,8 +94,8 @@ void Param::update_transitions () {
 void Param::next_block() {
     block_ptr++;
     //    while ((block_ptr >= n_tot) & (block_ptr < 2*n_tot)) block_ptr++;
-    while (block_ptr > ntot*2 & block_ptr < ntot*2+n_vtypes) block_ptr++;
-    while (block_ptr > (ntot*2+n_vtypes) & block_ptr < ntot*2+n_vtypes*2) block_ptr++;
+    while (block_ptr > n_tot*2 & block_ptr < n_tot*2+n_vtypes) block_ptr++;
+    while (block_ptr > (n_tot*2+n_vtypes) & block_ptr < n_tot*2+n_vtypes*2) block_ptr++;
     if (block_ptr >= (2*n_tot+2*n_vtypes+1)) block_ptr = 0;
 }
 
