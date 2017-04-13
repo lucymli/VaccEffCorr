@@ -157,7 +157,7 @@ double Param::calc_llik (Data data) {
     std::vector <arma::mat> transitions_vec;
     std::vector <std::vector <double> > p0_vec;
     std::vector <std::vector <double> > thetaSI_vec;
-    for (int i=0; i<4; ++i) {
+    for (int i=0; i<total_threads; ++i) {
         data_vec.push_back(data);
         transitions_t_vec.push_back(transitions_t);
         transitions_vec.push_back(transitions);
