@@ -127,7 +127,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
                 if (vacc & (col_i<=n_vtypes) & (multiplier < STATIONARY_TIME)) {
                     full_immunity =1.0;// (double) (ind >= (n_vacc*p0[col_i-1]));
                     if (!use_mean_ab) susceptibility = data.get_ab(ind, col_i-1);
-                    matrix_to_change(row_i, col_i) *= p0[0]-susceptibility*thetaSI[0];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
+                    //matrix_to_change(row_i, col_i) *= p0[0]-susceptibility*thetaSI[0];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
+                    matrix_to_change(row_i, col_i) *= p0[0]*std::exp(-susceptibility*thetaSI[0]);
                 }
                 if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
                 tot_rate += matrix_to_change(row_i, col_i);

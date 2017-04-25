@@ -22,8 +22,8 @@
 class Param {
     int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr; // counts
     std::vector <double> tempparam, lambda, mu; // parameter vectors
-    std::vector <double> thetaSI, thetaIS, p0;
-    double frailtySI, frailtyIS, interaction; // non-serotype-specific parameters
+    std::vector <double> thetaSI, thetaIS, p0, interaction;
+    double frailtySI, frailtyIS; // non-serotype-specific parameters
     std::vector <double> accepted, rejected, proposal_sd; // mcmc vectors
     double llik; // overall log likelihood
     std::vector <double> llik_vec; // log likelihood for each block

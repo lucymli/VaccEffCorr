@@ -37,7 +37,9 @@ Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
     tempparam = std::vector <double> (n_tot);
 //    frailtySI = inputs[n_tot*2+n_vtypes*3];
 //    frailtyIS = inputs[n_tot*2+n_vtypes*3+1];
-    interaction = inputs[n_tot*2+n_vtypes*2];
+    for (int i=n_tot*2+n_vtypes*2; i!=nparams; i++) {
+        interaction.push_back(inputs[i]);
+    }
     for (int i=0; i<n_vtypes; i++) {
         lambda.push_back(inputs[i]);
         mu.push_back(inputs[i+n_tot]);
@@ -77,12 +79,15 @@ void Param::update_transitions () {
         transitions(0, i) = lambda[i-1];
         tot_rate += transitions(0, i);
     }
+    double curr_interaction;
     transitions(0, 0) = -tot_rate;
     for (int row_i=1; row_i<=n_tot; row_i++) {
         tot_rate = transitions(row_i, 0);
         for (int col_i=1; col_i<=n_tot; col_i++) {
             if (row_i!=col_i) {
-                transitions(row_i, col_i) = lambda[col_i-1]*interaction;
+                if (col_i <= n_vtypes) curr_interaction = interaction[0];
+                else curr_interaction = interaction[1];
+                transitions(row_i, col_i) = lambda[col_i-1]*curr_interaction;
                 tot_rate += transitions(row_i, col_i);
             }
         }
@@ -109,7 +114,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
         if (vacc & (i<n_vtypes) & (multiplier < STATIONARY_TIME)) {
             full_immunity = 1.0;//(double) (ind >= (n_vacc*p0[i]));
             if (!use_mean_ab) susceptibility = data.get_ab(ind, i);
-            matrix_to_change(0, i+1) *= p0[i]-susceptibility*thetaSI[i];//*full_immunity*ind_frailty_SI[(i-1)*n_vacc+ind]
+            //matrix_to_change(0, i+1) *= p0[i]-susceptibility*thetaSI[i];//*full_immunity*ind_frailty_SI[(i-1)*n_vacc+ind]
+            matrix_to_change(0, i+1) *= p0[i]*std::exp(-susceptibility*thetaSI[i]);
             matrix_to_change(i+1, 0) *= 1.0;//thetaIS[i];//*full_immunity;//*ind_frailty_IS[ind];
         }
         if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
@@ -124,7 +130,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
                 if (vacc & (col_i<=n_vtypes) & (multiplier < STATIONARY_TIME)) {
                     full_immunity =1.0;// (double) (ind >= (n_vacc*p0[col_i-1]));
                     if (!use_mean_ab) susceptibility = data.get_ab(ind, col_i-1);
-                    matrix_to_change(row_i, col_i) *= p0[col_i-1]-susceptibility*thetaSI[col_i-1];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
+                    //matrix_to_change(row_i, col_i) *= p0[col_i-1]-susceptibility*thetaSI[col_i-1];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
+                    matrix_to_change(row_i, col_i) *= p0[col_i-1]*std::exp(-susceptibility*thetaSI[col_i-1]);
                 }
                 if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
                 tot_rate += matrix_to_change(row_i, col_i);
@@ -269,10 +276,10 @@ double Param::calc_lprior (int block_i) const {
 //        boost::math::exponential_distribution<double>density(1.0);
 //        newlprior += log(boost::math::pdf(density, frailtyIS));
 //    }
-    else if (block_i==n_tot*2+n_vtypes*2) {
+    else if (block_i<n_tot*2+n_vtypes*2+2) {
         boost::math::beta_distribution<double>density(200.0, 300.0);// mean = 0.4, sd = 0.2
-        if (interaction < 0.0 | interaction > 1.0) newlprior = SMALLEST_NUMBER;
-        else newlprior += log(boost::math::pdf(density, interaction));
+        if (interaction[block_i-n_tot*2-2*n_vtypes] < 0.0 | interaction[block_i-n_tot*2-2*n_vtypes] > 1.0) newlprior = SMALLEST_NUMBER;
+        else newlprior += log(boost::math::pdf(density, interaction[block_i-n_tot*2-2*n_vtypes]));
     }
     if (!std::isfinite(newlprior)) newlprior = SMALLEST_NUMBER;
     return (newlprior);
@@ -377,14 +384,15 @@ void Param::alter_param (bool reject) {
 //        tempparam[0] = frailtyIS;
 //        frailtyIS = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
 //    }
-    else if (block_ptr==n_tot*2+n_vtypes*2) {
+    else if (block_ptr<n_tot*2+n_vtypes*2+2) {
+        ptr = block_ptr - n_tot*2 - n_vtypes*2;
         if (reject) {
-            interaction = tempparam[0];
+            interaction[ptr] = tempparam[ptr];
             update_transitions();
             return;
         }
-        tempparam[0] = interaction;
-        interaction = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+        tempparam[ptr] = interaction[ptr];
+        interaction[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], ntries);
         update_transitions();
     }
 }
@@ -435,7 +443,7 @@ double Param::operator[](int i) {
     else if (i < n_tot*2+n_vtypes*2) value = p0[i-n_tot*2-n_vtypes];
 //    else if (i == n_tot*2+n_vtypes*3) value = frailtySI;
 //    else if (i == n_tot*2+n_vtypes*3+1) value = frailtyIS;
-    else value = interaction;
+    else value = interaction[i-n_tot*2-n_vtypes*2];
     return (value);
 }
 
@@ -469,7 +477,7 @@ void Param::initialize_file (std::string filename) {
     for (int i=0; i<n_vtypes; i++) output_file << "\tthetaSI" << i;
 //    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
     for (int i=0; i<n_vtypes; i++) output_file << "\tp0" << i;
-    output_file << "\tinteraction";
+    for (int i=0; i<2; i++) output_file << "\tinteraction" << i;
 //    output_file <<"\tfrailtySI\tfrailtyIS\tinteraction";
     output_file << std::endl;
     output_file.close();
