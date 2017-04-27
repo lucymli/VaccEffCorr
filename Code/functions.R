@@ -182,15 +182,15 @@ mcmc_infer <- function (params, params.sd, dataset, mcmc.options,
                         run.program=FALSE) {
   selected.params <- params[c("lambda", "mu", "thetaSI", "p0", "interaction")]
   tot_params <- length(unlist(selected.params))#-params$ntypes
-  param.vec <- paste0(gsub(" ", "", format(unlist(selected.params), scientific=FALSE)), collapse="\n")
-  pre.vec <- paste0(c(vaccN=params$Nv, unvaccN=params$Nnv, n_vt=params$ntypes, n_nvt=params$ntot-params$ntypes,
+  param.vec <- paste(gsub(" ", "", format(unlist(selected.params), scientific=FALSE)), collapse="\n")
+  pre.vec <- paste(c(vaccN=params$Nv, unvaccN=params$Nnv, n_vt=params$ntypes, n_nvt=params$ntot-params$ntypes,
     total_params=tot_params, n_swabs=params$nswabs, unlist(mcmc.options), file.out 
     #n_param_blocks=length(selected.params), sapply(selected.params, length)
     ), collapse="\n")
-  param.sd.vec <- paste0(unlist(params.sd), collapse="\n")
-  data.vec <- paste0(unlist(lapply(c(lapply(dataset[1:2], `[`, , -1:-2), dataset[3]), c)), collapse="\n")
-  swab.times.vec <- paste0(params$times, collapse="\n")
-  input.vec <- paste0(pre.vec, param.vec, param.sd.vec, data.vec, swab.times.vec, collapse="\n")
+  param.sd.vec <- paste(unlist(params.sd), collapse="\n")
+  data.vec <- paste(unlist(lapply(c(lapply(dataset[1:2], `[`, , -1:-2), dataset[3]), c)), collapse="\n")
+  swab.times.vec <- paste(params$times, collapse="\n")
+  input.vec <- paste(pre.vec, param.vec, param.sd.vec, data.vec, swab.times.vec, sep="\n")
   cat(input.vec, file=input.file)
   command <- paste0(mcmc.program.dir, "/./", program.name, " ", input.file)
   if (run.program) {
