@@ -98,7 +98,7 @@ void Param::update_transitions () {
 void Param::next_block() {
     block_ptr++;
 //    while ((block_ptr >= n_tot) & (block_ptr < 2*n_tot)) block_ptr++;
-    if (block_ptr >= (2*n_tot+2*n_vtypes+1)) block_ptr = 0;
+    if (block_ptr >= n_params) block_ptr = 0;
 }
 
 void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::mat& transitions1, double multiplier, int n_tot, int n_vtypes, std::vector<double> p0, std::vector <double> thetaSI, bool use_mean_ab) {
