@@ -35,8 +35,8 @@ Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
     n_nvtypes = n_tot-n_vtypes;
     n_params = nparams;
     tempparam = std::vector <double> (n_tot);
-//    frailtySI = inputs[n_tot*2+n_vtypes*3];
-//    frailtyIS = inputs[n_tot*2+n_vtypes*3+1];
+    //    frailtySI = inputs[n_tot*2+n_vtypes*3];
+    //    frailtyIS = inputs[n_tot*2+n_vtypes*3+1];
     for (int i=n_tot*2+n_vtypes*2; i!=nparams; i++) {
         interaction.push_back(inputs[i]);
     }
@@ -44,7 +44,7 @@ Param::Param (int ntypes, int ntot, int nparams, std::vector <double> inputs,
         lambda.push_back(inputs[i]);
         mu.push_back(inputs[i+n_tot]);
         thetaSI.push_back(inputs[i+n_tot*2]);
-//        thetaIS.push_back(inputs[i+n_tot*2+n_vtypes]);
+        //        thetaIS.push_back(inputs[i+n_tot*2+n_vtypes]);
         p0.push_back(inputs[i+n_tot*2+n_vtypes]);
     }
     for (int i=n_vtypes; i<n_tot; i++) {
@@ -97,7 +97,7 @@ void Param::update_transitions () {
 
 void Param::next_block() {
     block_ptr++;
-//    while ((block_ptr >= n_tot) & (block_ptr < 2*n_tot)) block_ptr++;
+    //    while ((block_ptr >= n_tot) & (block_ptr < 2*n_tot)) block_ptr++;
     if (block_ptr >= n_params) block_ptr = 0;
 }
 
@@ -107,6 +107,7 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
     double tot_rate = 0.0;
     double full_immunity;
     double susceptibility;
+    double pr;
     if (use_mean_ab) susceptibility = data.get_mean_ab_ind(ind);
     for (int i=0; i<n_tot; i++) {
         matrix_to_change(0, i+1) = transitions1(0, i+1)*multiplier;
@@ -115,7 +116,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
             full_immunity = 1.0;//(double) (ind >= (n_vacc*p0[i]));
             if (!use_mean_ab) susceptibility = data.get_ab(ind, i);
             //matrix_to_change(0, i+1) *= p0[i]-susceptibility*thetaSI[i];//*full_immunity*ind_frailty_SI[(i-1)*n_vacc+ind]
-            matrix_to_change(0, i+1) *= p0[i]*std::exp(-susceptibility*thetaSI[i]);
+            pr = p0[i]*std::exp(-susceptibility*thetaSI[i]);
+            matrix_to_change(0, i+1) *= std::max(1.0, pr);
             matrix_to_change(i+1, 0) *= 1.0;//thetaIS[i];//*full_immunity;//*ind_frailty_IS[ind];
         }
         if (matrix_to_change(0, i+1)<0.0) matrix_to_change(0, i+1) = 0.0;
@@ -131,7 +133,8 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
                     full_immunity =1.0;// (double) (ind >= (n_vacc*p0[col_i-1]));
                     if (!use_mean_ab) susceptibility = data.get_ab(ind, col_i-1);
                     //matrix_to_change(row_i, col_i) *= p0[col_i-1]-susceptibility*thetaSI[col_i-1];//*full_immunity*ind_frailty_SI[(col_i-1)*n_vacc+ind]
-                    matrix_to_change(row_i, col_i) *= p0[col_i-1]*std::exp(-susceptibility*thetaSI[col_i-1]);
+                    pr = p0[col_i-1]*std::exp(-susceptibility*thetaSI[col_i-1]);
+                    matrix_to_change(row_i, col_i) *= std::max(1.0, pr);
                 }
                 if (matrix_to_change(row_i, col_i)<0.0) matrix_to_change(row_i, col_i) = 0.0;
                 tot_rate += matrix_to_change(row_i, col_i);
@@ -141,11 +144,11 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
     }
     try {
         original_matrix = arma::expmat(matrix_to_change);
-//        print_matrix(original_matrix, "matrix_exp.txt", n_tot);
-//        print_matrix(matrix_to_change, "matrix.txt", n_tot);
+        //        print_matrix(original_matrix, "matrix_exp.txt", n_tot);
+        //        print_matrix(matrix_to_change, "matrix.txt", n_tot);
     }
     catch(...) {
-        #pragma omp critical
+#pragma omp critical
         print_matrix(matrix_to_change, "matrix.txt", n_tot);
         std::cout << "EXPM failed" << std::endl;
     }
@@ -153,7 +156,7 @@ void calc_expm(bool vacc, int ind, Data data, arma::mat& original_matrix, arma::
 
 double Param::calc_llik (Data data) {
     int total_threads = omp_get_num_threads();
-//    std::cout << total_threads << " threads" << std::endl;
+    //    std::cout << total_threads << " threads" << std::endl;
     std::vector<double>newllik(total_threads, 0.0);
     std::vector <Data> data_vec;
     std::vector <arma::mat> transitions_t_vec;
@@ -172,9 +175,9 @@ double Param::calc_llik (Data data) {
 #pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<total_threads; tn++) {
         for (int i=tn; i<data_vec[tn]["n_vacc"]; i+=total_threads) {
-//        for (int i=tn; i<200; i+=total_threads) {
+            //        for (int i=tn; i<200; i+=total_threads) {
             int position1, position2;
-//            tn = omp_get_thread_num();
+            //            tn = omp_get_thread_num();
             /*For each individual, calculate the likelihood of observations*/
             position1 = (int) data_vec[tn].get_swab_v(i, 0);
             // calculate the probability of first swab results, i.e. at stationarity
@@ -189,7 +192,7 @@ double Param::calc_llik (Data data) {
                 //return (SMALLEST_NUMBER);
             }
             for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-//                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << " Ab: " << data_vec[tn].get_ab(i, 0)<< std::endl;
+                //                if (tn==0) std::cout << i << " " << time_step << " " << newllik[tn] << " prob: " << stationary_prev_vec[tn](0, position1) << " Ab: " << data_vec[tn].get_ab(i, 0)<< std::endl;
                 try{
                     calc_expm(true, i, data_vec[tn], transitions_t_vec[tn], transitions_vec[tn], data_vec[tn].get_swab_time(time_step), n_tot, n_vtypes, p0_vec[tn], thetaSI_vec[tn], use_mean_ab);
                 }
@@ -197,7 +200,7 @@ double Param::calc_llik (Data data) {
 #pragma omp critical
                     newllik[tn] += SMALLEST_NUMBER;
                     break;
-//                    return (SMALLEST_NUMBER);
+                    //                    return (SMALLEST_NUMBER);
                 }
                 position2 = (int) data_vec[tn].get_swab_v(i, time_step);
                 newllik[tn] += log(transitions_t_vec[tn](position1,position2));
@@ -205,28 +208,28 @@ double Param::calc_llik (Data data) {
             }
         }
     }
-//    try{
-//        calc_expm(false, 0, data, stationary_prev, STATIONARY_TIME);
-//    }
-//    catch (...) {
-//        return (SMALLEST_NUMBER);
-//    }
-//    for (int i=0; i<data["n_nvacc"]; i++) {
-//        position1 = (int) data.get_swab_nv(i, 0);
-//        newllik += log(stationary_prev(0, position1));
-//        for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
-//            try{
-//                calc_expm(false, i, data, transitions_t, data.get_swab_time(time_step));
-//            }
-//            catch (...) {
-//                return (SMALLEST_NUMBER);
-//            }
-//            position2 = (int) data.get_swab_nv(i, time_step);
-//            newllik += log(transitions_t(position1, position2));
-//            position1 = position2;
-//        }
-//    }
-//    if (!std::isfinite(newllik)) newllik = SMALLEST_NUMBER;
+    //    try{
+    //        calc_expm(false, 0, data, stationary_prev, STATIONARY_TIME);
+    //    }
+    //    catch (...) {
+    //        return (SMALLEST_NUMBER);
+    //    }
+    //    for (int i=0; i<data["n_nvacc"]; i++) {
+    //        position1 = (int) data.get_swab_nv(i, 0);
+    //        newllik += log(stationary_prev(0, position1));
+    //        for (int time_step=1; time_step<data["n_swabs"]; time_step++) {
+    //            try{
+    //                calc_expm(false, i, data, transitions_t, data.get_swab_time(time_step));
+    //            }
+    //            catch (...) {
+    //                return (SMALLEST_NUMBER);
+    //            }
+    //            position2 = (int) data.get_swab_nv(i, time_step);
+    //            newllik += log(transitions_t(position1, position2));
+    //            position1 = position2;
+    //        }
+    //    }
+    //    if (!std::isfinite(newllik)) newllik = SMALLEST_NUMBER;
     double sum_newllik = 0.0;
     for (int i=0; i!=newllik.size(); ++i) {
         if(!std::isfinite(newllik[i])) return (SMALLEST_NUMBER);
@@ -239,43 +242,43 @@ double Param::calc_llik (Data data) {
 double Param::calc_lprior (int block_i) const {
     double newlprior = 0.0;
     if (block_i<n_tot) {
-//        for (auto i=lambda.begin(); i<lambda.end(); i++) {
-            boost::math::uniform_distribution <double> density(0.000000001, 1.0);
-            newlprior += log(boost::math::pdf(density, lambda[block_i]));
-//        }
+        //        for (auto i=lambda.begin(); i<lambda.end(); i++) {
+        boost::math::uniform_distribution <double> density(0.000000001, 1.0);
+        newlprior += log(boost::math::pdf(density, lambda[block_i]));
+        //        }
     }
     else if (block_i<n_tot*2) {
-//        for (auto i=mu.begin(); i<mu.end(); i++) {
-            boost::math::uniform_distribution <double> density(0.000000001, 0.05);
-            newlprior += log(boost::math::pdf(density, mu[block_i-n_tot]));
-//        }
+        //        for (auto i=mu.begin(); i<mu.end(); i++) {
+        boost::math::uniform_distribution <double> density(0.000000001, 0.05);
+        newlprior += log(boost::math::pdf(density, mu[block_i-n_tot]));
+        //        }
     }
     else if (block_i<n_tot*2+n_vtypes) {
-//        for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) {
-            boost::math::uniform_distribution<>density(-1.0, 5.0);
-            newlprior += log(boost::math::pdf(density, thetaSI[block_i-n_tot*2]));
-//        }
+        //        for (auto i=thetaSI.begin(); i<thetaSI.end(); i++) {
+        boost::math::uniform_distribution<>density(-1.0, 5.0);
+        newlprior += log(boost::math::pdf(density, thetaSI[block_i-n_tot*2]));
+        //        }
     }
-//    else if (block_i==3) {
-//        for (auto i=thetaIS.begin(); i<thetaIS.end(); i++) {
-//            boost::math::uniform_distribution<>density(0.5, 2.0);
-//            newlprior += log(boost::math::pdf(density, *i));
-//        }
-//    }
+    //    else if (block_i==3) {
+    //        for (auto i=thetaIS.begin(); i<thetaIS.end(); i++) {
+    //            boost::math::uniform_distribution<>density(0.5, 2.0);
+    //            newlprior += log(boost::math::pdf(density, *i));
+    //        }
+    //    }
     else if (block_i<n_tot*2+n_vtypes*2) {
-//        for (auto i=p0.begin(); i<p0.end(); i++) {
-            boost::math::uniform_distribution<>density(0.0, 2.0);
-            newlprior += log(boost::math::pdf(density, p0[block_i-n_tot*2-n_vtypes]));
-//        }
+        //        for (auto i=p0.begin(); i<p0.end(); i++) {
+        boost::math::uniform_distribution<>density(0.0, 2.0);
+        newlprior += log(boost::math::pdf(density, p0[block_i-n_tot*2-n_vtypes]));
+        //        }
     }
-//    else if (block_i==5) {
-//        boost::math::exponential_distribution<double>density(1.0);
-//        newlprior += log(boost::math::pdf(density, frailtySI));
-//    }
-//    else if (block_i==6) {
-//        boost::math::exponential_distribution<double>density(1.0);
-//        newlprior += log(boost::math::pdf(density, frailtyIS));
-//    }
+    //    else if (block_i==5) {
+    //        boost::math::exponential_distribution<double>density(1.0);
+    //        newlprior += log(boost::math::pdf(density, frailtySI));
+    //    }
+    //    else if (block_i==6) {
+    //        boost::math::exponential_distribution<double>density(1.0);
+    //        newlprior += log(boost::math::pdf(density, frailtyIS));
+    //    }
     else if (block_i<n_tot*2+n_vtypes*2+2) {
         boost::math::beta_distribution<double>density(200.0, 300.0);// mean = 0.4, sd = 0.2
         if (interaction[block_i-n_tot*2-2*n_vtypes] < 0.0 | interaction[block_i-n_tot*2-2*n_vtypes] > 1.0) newlprior = SMALLEST_NUMBER;
@@ -332,7 +335,7 @@ void Param::alter_param (bool reject) {
         tempparam = mu;
         //for (int i=0; i<n_tot; i++) {
         ptr = block_ptr-n_tot;
-            mu[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], ntries);
+        mu[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], ntries);
         //}
         update_transitions();
     }
@@ -342,48 +345,48 @@ void Param::alter_param (bool reject) {
             return;
         }
         tempparam = thetaSI;
-//        for (int i=0; i<n_vtypes; i++) {
-            ptr = block_ptr - n_tot*2;
-            thetaSI[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], 0);
-//        }
+        //        for (int i=0; i<n_vtypes; i++) {
+        ptr = block_ptr - n_tot*2;
+        thetaSI[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], 0);
+        //        }
     }
-//    else if (block_ptr==3) {
-//        if (reject) {
-//            thetaIS = tempparam;
-//            return;
-//        }
-//        tempparam = thetaIS;
-//        for (int i=0; i<n_vtypes; i++) {
-//            thetaIS[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
-//        }
-//    }
+    //    else if (block_ptr==3) {
+    //        if (reject) {
+    //            thetaIS = tempparam;
+    //            return;
+    //        }
+    //        tempparam = thetaIS;
+    //        for (int i=0; i<n_vtypes; i++) {
+    //            thetaIS[i] = uni_propose(tempparam[i], proposal_sd[block_ptr], ntries);
+    //        }
+    //    }
     else if (block_ptr<n_tot*2+n_vtypes*2) {
         if (reject) {
             p0 = tempparam;
             return;
         }
         tempparam = p0;
-//        for (int i=0; i<n_vtypes; i++) {
+        //        for (int i=0; i<n_vtypes; i++) {
         ptr = block_ptr - (n_tot*2+n_vtypes);
-            p0[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], 0);
-//        }
+        p0[ptr] = uni_propose(tempparam[ptr], proposal_sd[block_ptr], 0);
+        //        }
     }
-//    else if (block_ptr==5) {
-//        if (reject) {
-//            frailtySI = tempparam[0];
-//            return;
-//        }
-//        tempparam[0] = frailtySI;
-//        frailtySI = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
-//    }
-//    else if (block_ptr==6) {
-//        if (reject) {
-//            frailtyIS = tempparam[0];
-//            return;
-//        }
-//        tempparam[0] = frailtyIS;
-//        frailtyIS = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
-//    }
+    //    else if (block_ptr==5) {
+    //        if (reject) {
+    //            frailtySI = tempparam[0];
+    //            return;
+    //        }
+    //        tempparam[0] = frailtySI;
+    //        frailtySI = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+    //    }
+    //    else if (block_ptr==6) {
+    //        if (reject) {
+    //            frailtyIS = tempparam[0];
+    //            return;
+    //        }
+    //        tempparam[0] = frailtyIS;
+    //        frailtyIS = uni_propose(tempparam[0], proposal_sd[block_ptr], ntries);
+    //    }
     else if (block_ptr<n_tot*2+n_vtypes*2+2) {
         ptr = block_ptr - n_tot*2 - n_vtypes*2;
         if (reject) {
@@ -410,11 +413,11 @@ void Param::mcmc_move (Data data, bool adapt, double optimal_adapt) {
     boost::variate_generator<boost::mt19937&, boost::uniform_01<> > runif(rng, zeroone);
     double z = log(runif());
     double ratio = (newllik+newlprior-llik-lprior);
-//    boost::math::normal_distribution<double>norm(0.0,1.0);
-//    double temp1 = boost::math::cdf(norm, -previous_val/proposal_sd[block_ptr]);
-//    double temp2 = boost::math::cdf(norm, -(*this)[block_ptr]/proposal_sd[block_ptr]);
-//    double K = (1.0-temp1)/(1.0-temp2);
-//    ratio += log(K);
+    //    boost::math::normal_distribution<double>norm(0.0,1.0);
+    //    double temp1 = boost::math::cdf(norm, -previous_val/proposal_sd[block_ptr]);
+    //    double temp2 = boost::math::cdf(norm, -(*this)[block_ptr]/proposal_sd[block_ptr]);
+    //    double K = (1.0-temp1)/(1.0-temp2);
+    //    ratio += log(K);
     bool reject = z > ratio;
     if (reject) {
         alter_param (true);
@@ -439,10 +442,10 @@ double Param::operator[](int i) {
     if (i < n_tot) value = lambda[i];
     else if (i < n_tot*2) value = mu[i-n_tot];
     else if (i < n_tot*2+n_vtypes) value = thetaSI[i-n_tot*2];
-//    else if (i < n_tot*2+n_vtypes*2) value = thetaIS[i-n_tot*2-n_vtypes];
+    //    else if (i < n_tot*2+n_vtypes*2) value = thetaIS[i-n_tot*2-n_vtypes];
     else if (i < n_tot*2+n_vtypes*2) value = p0[i-n_tot*2-n_vtypes];
-//    else if (i == n_tot*2+n_vtypes*3) value = frailtySI;
-//    else if (i == n_tot*2+n_vtypes*3+1) value = frailtyIS;
+    //    else if (i == n_tot*2+n_vtypes*3) value = frailtySI;
+    //    else if (i == n_tot*2+n_vtypes*3+1) value = frailtyIS;
     else value = interaction[i-n_tot*2-n_vtypes*2];
     return (value);
 }
@@ -475,10 +478,10 @@ void Param::initialize_file (std::string filename) {
     for (int i=0; i<n_tot; i++) output_file << "\tlambda" << i;
     for (int i=0; i<n_tot; i++) output_file << "\tmu" << i;
     for (int i=0; i<n_vtypes; i++) output_file << "\tthetaSI" << i;
-//    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
+    //    for (int i=0; i<n_vtypes; i++) output_file << "\tthetaIS" << i;
     for (int i=0; i<n_vtypes; i++) output_file << "\tp0" << i;
     for (int i=0; i<2; i++) output_file << "\tinteraction" << i;
-//    output_file <<"\tfrailtySI\tfrailtyIS\tinteraction";
+    //    output_file <<"\tfrailtySI\tfrailtyIS\tinteraction";
     output_file << std::endl;
     output_file.close();
 }
