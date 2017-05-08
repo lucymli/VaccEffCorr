@@ -14,25 +14,17 @@
 #include <string>
 
 class Data {
-    std::vector <double> swab_data_v; // nrow=total number of vaccinated, ncol=swabs
-    std::vector <double> swab_data_nv; // nrow=total number of vaccinated, ncol=swabs
-    std::vector <double> swab_times; // timing of swabs
-    std::vector <double> ab_data; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-    std::vector <double> lambda_reduction; // nrow=total number of vaccinated, ncol=serotypes in a vaccine
-    int n_vacc, n_nvacc, n_swabs, n_vtypes, n_nvtypes,n_tot;
-    std::vector<double> mean_ab, max_ab, min_ab, mean_ab_ind;
 public:
-    Data (std::vector<double>, std::vector<double>, std::vector<double>,
-          std::vector <double>, int, int, int, int);
-    int operator[] (std::string) const;
-    double get_swab_time (int);
-    double get_swab_v (int, int);
-    double get_swab_nv (int, int);
-    double get_ab (int, int);
-    double get_mean_ab (int);
-    double get_max_ab (int);
-    double get_min_ab (int);
-    double get_mean_ab_ind (int);
+    Data ();
+    std::vector <double> carriage; // nrow=total number of individuals, ncol=number of swabs
+    std::vector <double> metadata; // nrow=total number of individuals, ncol=number of covariates
+    std::vector <double> predictors; // nrow=total number of individuals, ncol=number of predictors of carraige (serotype-specific antibody levels)
+    int n_ind;
+    int n_time;
+    int n_types;
+    int n_vacc_types;
+    int n_covariates;
+    int n_predictors;
 };
 
 #endif /* data_hpp */
