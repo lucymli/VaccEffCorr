@@ -7,3 +7,12 @@
 //
 
 #include "likelihood.hpp"
+
+
+double calc_lik (Param params, Data data, bool log) {
+    double lik;
+    return (lik);
+}
+
+double predict_lambda (double predictor, Param params) {
+}
