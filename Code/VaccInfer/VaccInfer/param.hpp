@@ -20,20 +20,17 @@
 #include "data.hpp"
 
 class Param {
-    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr; // counts
-    std::vector <double> tempparam, lambda, mu; // parameter vectors
-    std::vector <double> thetaSI, thetaIS, p0, interaction;
-    double frailtySI, frailtyIS; // non-serotype-specific parameters
-    std::vector <double> accepted, rejected, proposal_sd; // mcmc vectors
-    double llik; // overall log likelihood
-    std::vector <double> llik_vec; // log likelihood for each block
-    double lprior; // overall prior
-    std::vector <double> lprior_vec; // prior for each block
-    arma::mat transitions, stationary_prev, transitions_t;
-    std::vector <double> ind_frailty_SI, ind_frailty_IS;
-    bool use_mean_ab;
 public:
-    Param (int, int, int, std::vector<double>, std::vector<double>, bool);
+    Param ();
+    std::vector <int> num_per_block;
+    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr; // counts
+    std::vector <double> tempparam, params;
+    std::vector <double> accepted;
+    double llik, new_llik;
+    double lprior, new_lprior;
+    
+    arma::mat transitions, stationary_prev, transitions_t;
+    std::string output_file_name;
     void update_transitions(); // transition rates matrix should be altered every time
     // a new parameter is proposed or rejected, if the parameter affects the transition
     // rates. currently include lambda, mu, and interaction between serotypes
