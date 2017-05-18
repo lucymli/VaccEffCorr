@@ -3,7 +3,7 @@
 //  VaccInfer
 //
 //  Created by Lucy Li on 2/13/17.
-//  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
+//  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
 //  compile using clang++ -L/usr/local/lib -larmadillo -O2 *.cpp > mcmc_infer
 //  or in Xcode: link libarmadillo.dylib, add -larmadillo and -O2 as Other linker flags,
