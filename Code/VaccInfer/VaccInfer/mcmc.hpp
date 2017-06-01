@@ -3,7 +3,7 @@
 //  VaccInfer
 //
 //  Created by Lucy Li on 5/16/17.
-//  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
+//  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
 
 #ifndef mcmc_hpp
@@ -12,7 +12,6 @@
 #include <stdio.h>
 #include "param.hpp"
 #include "likelihood.hpp"
-
 
 class MCMC {
 public:

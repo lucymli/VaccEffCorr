@@ -3,8 +3,9 @@
 //  VaccInfer
 //
 //  Created by Lucy Li on 5/16/17.
-//  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
+//  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
+
 
 #include "mcmc.hpp"
 
