@@ -15,13 +15,13 @@
 #include "param.hpp"
 #include "data.hpp"
 
-double calc_llik (Param &, Data&);
+double calc_llik (Param &, Data&, bool);
 
 void fill_rates (Param, arma::mat &);
 
 arma::mat fill_rates (arma::mat, Data, Param, int);
 
-double predict_lambda (Param&, Data);
+double predict_lambda (Param&, Data, bool);
 
 
 #endif /* likelihood_hpp */

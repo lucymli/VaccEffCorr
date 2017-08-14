@@ -67,7 +67,7 @@ void MCMC::run_mcmc(Param parameters, Data data) {
     parameters.initialize_file();
     // // Calculate likelihood and prior of initial parameters
     parameters.lprior = parameters.calc_lprior();
-    if (parameters.lprior > parameters.SMALLEST_NUMBER) parameters.llik = calc_llik(parameters, data);
+    if (parameters.lprior > parameters.SMALLEST_NUMBER) parameters.llik = calc_llik(parameters, data, use_mean_ab);
     parameters.print_to_file(0);
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
@@ -77,7 +77,7 @@ void MCMC::run_mcmc(Param parameters, Data data) {
     for (int iter=1; iter<niter; iter++) {
         parameters.propose();
         parameters.new_lprior = parameters.calc_lprior();
-        if (parameters.new_lprior > parameters.SMALLEST_NUMBER) parameters.new_llik = calc_llik(parameters, data);
+        if (parameters.new_lprior > parameters.SMALLEST_NUMBER) parameters.new_llik = calc_llik(parameters, data, use_mean_ab);
         parameters.accept_reject();
         adapt(parameters, *this);
         // Save parameter values

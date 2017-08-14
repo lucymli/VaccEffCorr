@@ -21,6 +21,7 @@
 
 int main () {
     Data data;
+    data.calc_mean_predictors();
     Param parameters;
     MCMC mcmc;
     mcmc.run_mcmc(parameters, data);

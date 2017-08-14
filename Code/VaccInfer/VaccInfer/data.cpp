@@ -37,3 +37,10 @@ void Data::write_metadata_corr (int iter) const {
     outputfile.close();
 }
 
+void Data::calc_mean_predictors() {
+    for (int i=0; i<n_ind; i++) {
+        mean_predictors.push_back(std::accumulate(predictors.begin()+i*n_predictors, predictors.begin()+(i+1)*n_predictors, 0.0));
+        mean_predictors[n_ind] /= (double) n_predictors;
+    }
+}
+

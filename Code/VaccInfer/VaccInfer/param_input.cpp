@@ -15,7 +15,6 @@ Param::Param () {
     output_file_name = "output.txt";
     n_vtypes = 13;
     n_tot = 33;
-    n_nvtypes = 20;
     n_params = 99;
     n_blocks = 6;
     llik = 0.0;
@@ -25,13 +24,14 @@ Param::Param () {
     block_ptr = 0;
     n_ind = 200;
     inferred_risk_file = "inferred_risk.txt";
-    inferred_risk.resize(2600); // n_ind * n_vtypes
-    inferred_risk_temp.resize(2600);
+    inferred_risk.resize(n_ind*n_vtypes); // n_ind * n_vtypes
+    inferred_risk_temp.resize(n_ind*n_vtypes);
     int num_per_block_array[6] = {35, 35, 2, 13, 13, 1};
-    std::copy(num_per_block_array, num_per_block_array+6, std::back_inserter(num_per_block));
+    std::copy(num_per_block_array, num_per_block_array+n_blocks, std::back_inserter(num_per_block));
     block_starts.push_back(0);
     for (int i=1; i<num_per_block.size(); i++) block_starts.push_back(num_per_block[i-1]+block_starts[i-1]);
-    double params_array[99] = {
+    double params_array[99] =
+    {
         0.001315481, 0.005084575, // mean and standard deviation of lambda
         0.000535396, 0.00201451, 0.000249904, 0.00153199, 0.000490381, 0.00115203, 0.00124178, 0.000977398, 0.000123424, 0.000314247, 0.000082313, 0.000177742, 0.000130397,
         0.0000137666, 0.00000189964, 0.000147169, 0.000834131, 0.0010559, 0.000693417, 0.000428734, 0.0000244788, 0.000189081, 0.000508208, 0.00000119155, 0.0000903176, 0.000118967, 0.0000688422, 0.0000459625, 0.0000292863, 0.000625802, 0.00000502775, 0.00000806392, 0.0294991,
@@ -43,24 +43,26 @@ Param::Param () {
         -0.00648, -0.13289, 3.98598, -0.02095, -0.06409, 0.29593, 0.16986, -0.05213, -0.10403, 0.60803, 1.12495, -0.00274, -0.03166, // second parameter of antibody model
         1 // surrogate indicator
     };
-    std::copy(params_array, params_array+99, std::back_inserter(params));
-    std::copy(params_array, params_array+99, std::back_inserter(tempparam));
+    for (int i=0; i<n_params; i++) {
+        params.push_back(params_array[i]);
+        tempparam.push_back(params_array[i]);
+    }
     double params_sd_array[6] = {0.00005, 0.0001, 0.05, 0.005, 0.05, 1};
-    std::copy(params_sd_array, params_sd_array+6, std::back_inserter(params_sd));
-    accepted.resize(6, 0);
-    rejected.resize(6, 0);
+    for (int i=0; i<n_blocks; i++) params_sd.push_back(params_sd_array[i]);
+    accepted.resize(n_blocks, 0);
+    rejected.resize(n_blocks, 0);
 }
 
 double Param::calc_lprior() {
     double dens = 0.0;
     // lambda
-    dens += dnorm(params[0], 0.001315481, 0.0013);
-    dens += dnorm(params[1], 0.005084575, 0.005084575);
-//    for (int i=block_starts[0]; i<block_starts[0]+num_per_block[0]; i++) dens += dnorm(params[i], params[0], params[1]);
+//    dens += dnorm(params[0], 0.001315481, 0.0013);
+//    dens += dnorm(params[1], 0.005084575, 0.005084575);
+    for (int i=block_starts[0]; i<block_starts[0]+num_per_block[0]; i++) dens += dunif(params[i], 0.000001, 0.1);
     // mu
-    dens += dnorm(params[0], 0.02381501, 0.02381501);
-    dens += dnorm(params[1], 0.01531154, 0.01531154);
-//    for (int i=block_starts[1]; i<block_starts[1]+num_per_block[1]; i++) dens += dnorm(params[i], params[block_starts[1]], params[block_starts[1]+1]);
+//    dens += dnorm(params[0], 0.02381501, 0.02381501);
+//    dens += dnorm(params[1], 0.01531154, 0.01531154);
+    for (int i=block_starts[1]; i<block_starts[1]+num_per_block[1]; i++) dens += dunif(params[i], 0.000001, 0.1);
     // competition
     for (int i=block_starts[2]; i<block_starts[2]+num_per_block[2]; i++) dens += dunif(params[i], 0.0, 1.0);
     // antibody model parameter 1
@@ -68,7 +70,7 @@ double Param::calc_lprior() {
     // antibody model parameter 2
     for (int i=block_starts[4]; i<block_starts[4]+num_per_block[4]; i++) dens += dunif(params[i], -5.0, 5.0);
     // surrogate indicator for 6B
-    if (params[block_starts[5]] < 0 | params[block_starts[5]] >= n_vtypes) dens += SMALLEST_NUMBER;
+//    if (params[block_starts[5]] < 0 | params[block_starts[5]] >= n_vtypes) dens += SMALLEST_NUMBER;
     if (dens < SMALLEST_NUMBER) dens = SMALLEST_NUMBER;
     return (dens);
 }
@@ -79,7 +81,7 @@ void Param::propose() {
     if (block_ptr < 2) {
 //        params[block_starts[0]] = rnorm(tempparam[block_starts[0]], params_sd[block_ptr], 0.0, 1.0, ntries);
 //        params[block_starts[0]+1] = rnorm(tempparam[block_starts[1]], params_sd[block_ptr], 0.0, 1.0, ntries);
-        for (int i=block_starts[block_ptr]+2; i<block_starts[block_ptr]+num_per_block[block_ptr]; i++) {
+        for (int i=block_starts[block_ptr]; i<block_starts[block_ptr]+num_per_block[block_ptr]; i++) {
 //            params[i] = rnorm(params[block_starts[block_ptr]], params[block_starts[block_ptr]+1], 0.0, 1.0, ntries);
               params[i] = rnorm(tempparam[i], params_sd[block_ptr], 0.0, 1.0, ntries);
 
@@ -110,14 +112,12 @@ void Param::initialize_file () {
     std::ofstream output_file;
     output_file.open(output_file_name);
     output_file << "state\tposterior\tlikelihood\tprior";
-    output_file << "\tlambdamean\tlambdasd";
     for (int i=0; i<n_tot; i++) output_file << "\tlambda" << i;
-    output_file << "\tmumean\tmusd";
     for (int i=0; i<n_tot; i++) output_file << "\tmu" << i;
     for (int i=0; i<2; i++) output_file << "\tcompetition" << i;
     for (int i=0; i<n_vtypes; i++) output_file << "\tab1type" << i;
     for (int i=0; i<n_vtypes; i++) output_file << "\tab2type" << i;
-    output_file << "\tsurrogate";
+//    output_file << "\tsurrogate";
     output_file << std::endl;
     output_file.close();
 }

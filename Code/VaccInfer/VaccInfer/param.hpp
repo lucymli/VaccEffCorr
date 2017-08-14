@@ -20,7 +20,7 @@ public:
     double SMALLEST_NUMBER;
     std::vector <int> num_per_block;
     std::vector <int> block_starts;
-    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr, n_ind; // counts
+    int n_vtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr, n_ind; // counts
     std::vector <double> tempparam, params, params_sd;
     std::vector <double> accepted, rejected;
     double llik, new_llik;

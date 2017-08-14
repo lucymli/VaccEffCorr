@@ -28,7 +28,7 @@ void print_matrix (arma::mat & mat_to_output, std::string filename, int mat_dim)
 
 void Param::next () {
     block_ptr += 1;
-    if (block_ptr > n_blocks) block_ptr = 0;
+    if (block_ptr >= n_blocks) block_ptr = 0;
 }
 
 void Param::accept_reject () {

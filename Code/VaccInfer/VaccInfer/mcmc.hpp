@@ -23,6 +23,7 @@ public:
     int adapt_every;
     int adapt_until;
     int tot_blocks;
+    bool use_mean_ab;
     void run_mcmc(Param, Data);
 };
 
