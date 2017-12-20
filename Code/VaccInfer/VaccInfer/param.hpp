@@ -9,7 +9,7 @@
 #ifndef param_hpp
 #define param_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include <cmath>
 #include <armadillo>
 #include "data.hpp"
@@ -20,29 +20,33 @@ public:
     double SMALLEST_NUMBER;
     std::vector <int> num_per_block;
     std::vector <int> block_starts;
+    std::vector <int> param_index;
     int n_vtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr, n_ind; // counts
-    std::vector <double> tempparam, params, params_sd;
+    std::vector <std::string> params_names;
+    std::vector <double> params, tempparams;
+    std::vector <std::string> params_trans;
+    std::vector <double> params_min, params_max;
+    std::vector <std::string> params_prior;
+    std::vector <double> params_prior1, params_prior2;
+    std::vector <double> relative_lambda_mu, dur_mean, dur_sd;
     std::vector <double> accepted, rejected;
     double llik, new_llik;
     double lprior, new_lprior;
     std::string output_file_name;
-    std::string inferred_risk_file;
-    std::vector <double> inferred_risk; // nrow=total number of individuals, ncol=number of serotypes
-    std::vector <double> inferred_risk_temp;
     Param ();
+    Param (std::string);
+    void print_params_to_screen() const;
+    double transform(std::string, double, bool) const;
     void next();
-    void dprior();
-    void rprior();
     void propose();
     void accept_reject();
-    double calc_lprior();
+    double calc_lprior(bool);
     void initialize_file();
     void print_to_file(int);
     double get_param(int, int) const;
     double get_inferred_risk(int, int) const;
     void set_inferred_risk(double, int, int);
     double sum_risk_by_ind(int) const;
-    void write_inferred_risk (int) const;
     double sum_risk_by_type(int) const;
     double mean_risk_by_ind(int) const;
     double mean_risk_by_type(int) const;
