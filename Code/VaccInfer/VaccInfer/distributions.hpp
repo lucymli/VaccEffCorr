@@ -9,7 +9,7 @@
 #ifndef distributions_hpp
 #define distributions_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include <boost/random.hpp>
 #include <boost/random/random_device.hpp>
 #include <boost/random/normal_distribution.hpp>
@@ -26,5 +26,9 @@ double runif(double, double);
 double runif();
 
 double dunif(double, double, double);
+
+double get_rand_num(std::string, double, double);
+
+double get_density(double, std::string, double, double, bool);
 
 #endif /* distributions_hpp */

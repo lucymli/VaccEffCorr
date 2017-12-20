@@ -53,3 +53,26 @@ double dunif(double x, double lower, double upper) {
     double dens = log(boost::math::pdf(density, x));
     return (dens);
 }
+
+double get_density(double value, std::string distribution, double par1, double par2, bool return_log=true) {
+    double density = 0.0;
+    if (distribution == "unif") {
+        density += dunif(value, par1, par2);
+    }
+    else if (distribution == "norm") {
+        density += dnorm(value, par1, par2);
+    }
+    if (!return_log) density = std::exp(density);
+    return (density);
+}
+
+double get_rand_num(std::string distribution, double par1, double par2) {
+    double rnum;
+    if (distribution == "unif") {
+        rnum = runif(par1, par2);
+    }
+    else if (distribution == "norm") {
+        rnum = rnorm(par1, par2);
+    }
+    return (rnum);
+}
