@@ -9,13 +9,14 @@
 #ifndef mcmc_hpp
 #define mcmc_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include "param.hpp"
 #include "likelihood.hpp"
 
 class MCMC {
 public:
     MCMC ();
+    MCMC (std::string);
     int iter;
     int niter;
     int sample_every;

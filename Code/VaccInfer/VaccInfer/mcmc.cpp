@@ -72,7 +72,7 @@ void MCMC::run_mcmc(Param parameters, Data data) {
     std::chrono::time_point<std::chrono::system_clock> start, end;
     start = std::chrono::system_clock::now();
 //    parameters.write_metadata_corr(0);
-    parameters.write_inferred_risk(0);
+    //parameters.write_inferred_risk(0);
     parameters.next();
     for (int iter=1; iter<niter; iter++) {
         parameters.propose();
@@ -84,7 +84,7 @@ void MCMC::run_mcmc(Param parameters, Data data) {
         if ((iter%sample_every)==0) {
             parameters.print_to_file(iter);
 //            parameters.write_metadata_corr(iter);
-            parameters.write_inferred_risk(iter);
+            //parameters.write_inferred_risk(iter);
             end = std::chrono::system_clock::now();
             std::chrono::duration<double> elapsed_seconds = end-start;
             std::cout << iter << ") " << elapsed_seconds.count() << std::endl;
