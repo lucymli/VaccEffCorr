@@ -9,7 +9,7 @@
 #ifndef data_hpp
 #define data_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include <vector>
 #include <string>
 #include <fstream>
