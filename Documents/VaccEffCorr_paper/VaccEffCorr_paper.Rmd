@@ -1,10 +1,11 @@
 ---
 title: 
-  - "Estimating correlates of protection and vaccine effect simultaneously"
+  - "Simultaneously estimating correlates of protection and vaccine efficacy"
   - "\textbf{Short title:}Estimating vaccine efficacy using serotype-specific antibody titers"
 author: 
-  - "Lucy M Li$^{1}$^[Corresponding author: Lucy Li, <luli@hsph.harvard.edu>], Marc Lipsitch$^1$"
+  - "Lucy M Li$^{1}$^[Corresponding author: Lucy Li, <luli@hsph.harvard.edu>], Ron Dagan$^2$, Marc Lipsitch$^1$"
   - "$^1$Center for Communicable Disease Dynamics, Harvard T.H. Chan School of Public Health, Boston, Massachusetts, United States of America"
+  - "$^2$Pediatric Infectious Disease Unit, Soroka University Medical Center, Beer-Sheva, Israel"
 date: '`r Sys.Date()`'
 output: 
   pdf_document:
@@ -45,12 +46,16 @@ When the 13-valent PCV (PCV13) was first introduced, a vaccine trial was held in
 
 There are many immunological biomarkers that correlate with the clinical endpoint of interest. Those that lie on the causal pathway are known as surrogates of protection. Identifying surrogates of protection and quantifying the relationship with the clinical endpoint would help to assess vaccine effectiveness without waiting a long time to observe clinical endpoints of interest. For some vaccines, complete protected once a threshold level of antibody titer is induced, for example diphtheria, rubella, measles, and tetanus. In the case of PCV, the level of protection correlates with antibody titer but even a high antibody concentration does not guarantee protection against infection. The concentration of vaccine-induced IgG against a particular serotype has been shown to correlate with the rate of acquiring that serotype [@Dagan2016]. Quantifying the relationship between antibody titer and protection against colonization is therefore needed to predict the vaccine efficacy based on antibody levels.
 
-Here, we present an inference framework that co-estimates vaccine efficacy for a multivalent vaccine while quantifying the relationship between vaccine-induced antibody concentrations and the rates of NP colonization. In addition to testing on simulated data, we applied this inference framework to vaccine trial data from [@Dagan2013].
+Without accounting for within-host competitive exclusion, methods that calculate the relative rate for each individual serotype might under-estimate the vaccine efficacy. This is because PCV is more effective against colonization by some serotypes than others, which could lead to reduced competition and therefore increased prevalence of the serotypes against which PCV has less effect. Mehtälä et al. [-@Mehtala2016] presented a method to estimate the vaccine efficacy defined by the reduction in colonization rates using a model that accounts for competitive exclusion. The authors also fit a model of individual heterogeneity in terms of response to vaccination, and estimated the parameters from prevalence data.
+
+We build on the work of [@Mehtala2016] to directly predict individual responsiveness to vaccination using post-vaccination serum antibody levels instead of inferring the general shape of the distribution of responsiveness across the study population. In addition to testing on simulated data, we applied this inference framework to vaccine trial data from [@Dagan2013].
 
 
 # Methods
 
 <!-- Please clarify the reasons for including your Materials and Methods section before the Results or Discussion sections in your cover letter when submitting your manuscript files-->
+
+
 
 ## Data
 
@@ -62,16 +67,21 @@ We modeled \emph{S. pneumoniae} colonization of the nasopharynx as a Markov proc
 
 Vaccination reduces the rate of acquisition of serotypes targeted by the vaccine, and the magnitude of reduction is proportional to the vaccine-induced antibody level as quantified by the serum titer of serotype-specific IgG ($\mu$g/mL) after vaccination. Let the average rate of acquiring serotype $j$ amongst vaccinated individuals $i\in \{1,...,N\}$ be $\lambda'_j = \frac{1}{N}\sum\limits_{i=1}^{N}\lambda'_{ij}$, where $N$ is the number of individuals. The serotype-specific antibody level against serotype $j$ in individual $i$ is $A_{ij}$, with the average antibody level in that individual being $\textrm{log}10(A_{i}) = \sum\limits_{i=1}^{N}\textrm{log}10(A_{ij})$.
 
-We tested 3 models relating the vaccine-induced antibody levels is related to the reduction in acquisition rates:
+We tested 2 models of how the vaccine-induced antibody levels were related to the reductions in acquisition rates:
 
 1. Reduction in serotype-specific acquisition rate is predicted by serotype-specific antibody levels. The relationship is serotype-specific. $\lambda'_{ij} = f_j(A_{ij})\lambda_j$
-2. Reduction in serotype-specific acquisition rate is predicted by serotype-specific antibody levels. The relationship is the same for all serotypes. $\lambda'_{ij} = f(A_j)\lambda_j$
-3. Reduction in serotype-specific acquisition rate is predicted by average antibody levels. The relationship is serotype-specific. $\lambda'_{ij} = f_j(A_i)\lambda_j$
+2. Reduction in serotype-specific acquisition rate is predicted by average antibody levels. The relationship is serotype-specific. $\lambda'_{ij} = f_j(A_i)\lambda_j$
 
-If model 2 were true, then we would expect more colonizations by serotypes against which the vaccine-induced IgG concentrations were low. 
+Model 2 could perform better than than first model if the error in antibody level measurement was high.
 
-Model 3 could perform better than than first two models if the error in IgG titer measurement is high.
+We further tested 2 predictive models of how log$_{10}$-transformed antibody level against serotype $j$ in individual $i$ was related to the rate of colonization (relative to unvaccinated rates) $\lambda_{ij}$:
 
+1. Linear: $\lambda_{ij} = a_j + b_j \textrm{log}_{10}(\textrm{IgG}_{ij})$
+2. Exponential: $$\lambda_{ij} = 
+        						\begin{cases}
+        						a_j e^{b_j \textrm{log}_10(\textrm{IgG}_{ij})},&\textrm{for IgG}_{ij}>c_j\\
+        						1,&\textrm{for IgG}_{ij} <=c_j
+        						\end{cases}$$
 
 ```{r MarkovTransitionModel, fig.align="center", out.width="300px", fig.cap=paste0("\\label{fig:model}Markov transition model of transmission process without vaccination.")}
 knitr::include_graphics("MarkovModel.pdf")
@@ -102,10 +112,16 @@ $$
 
 The equilibrium transition probabilities can be calculated using $G(t_0)=exp(10000\times M(t_0))$, where 10,000 is an arbitrary large number. The calculate the probability of an individual being in state $X(t_0)$ at the start of the observation period is therefore $P(X(t_0)|\theta)=G_{0,X(t_0)}$. Similarly, probabilities of observing subsequent states can be calculated by first exponentiating the rate matrix $G(t_i)=exp((t_i-t_{i-1})\times M(t_i))$, and then using the value $P(X(t_i)|X(t_{i-1}))=G_{X(t_{i-1}),X(t_i)}(t_i)$.
 
+Likelihood: $\sum\limits_{i=1}^n [P(X_0)\prod\limits_{r=1}^T P(X_i(t_{r-1}) | X_i(t_r))]$
 
 We estimated the posterior distribution of parameter values using a Markov Chain Monte Carlo (MCMC) approach. The value of only one parameter was changed at each MCMC iteration. The new parameter vector $\theta'$ was accepted or rejected with probability $\frac{P(\theta|\theta')P(\theta')P(D|\theta')}{P(\theta'|\theta)P(\theta)P(D|\theta)}$.
 
 Code used to estimate parameters is available at github.com/lucymli/VaccEffCorr/tree/openmp/Code/VaccInfer/VaccInfer.
+
+## Priors
+
+Prior on duration of carriage was uniform with bounds . This was based on values form Table 1 of Sleeman et al (2006) https://doi.org/10.1086/505710. "the duration of carriage for capsular serotypes for which there had been >10 acquisitions varied from 5.9 weeks for capsular serotype 15C to 19.9 weeks for capsular serotype 6B, and there was a significant inverse correlation between attack rate and duration of carriage."
+
 
 # Results
 
@@ -172,6 +188,19 @@ reduction.in.rates <- apply(colonization.reductions[, -1], 1, function (x) scale
 ```
 
 For the 6 new serotypes in PCV13, reduced rates of acquisition in PCV13 recipients compared to PCV7 recipients were identified for `r EpiGenR::str_to_sentence(pcv13.types[-1:-7][substr(reduction.in.rates,1,1)!="-"])` with reductions in acquisition rates of `r EpiGenR::str_to_sentence(reduction.in.rates[substr(reduction.in.rates,1,1)!="-"])`, respectively.
+
+## Comparison with results without the Markov transition model
+
+In Dagan et al (2013), the authors delineated the relationships between serotype-specific antibody titers and probability of acquiring those serotypes after vaccination. 
+
+The main differences between our approach and the approach taken in Dagan et al (2013):
+
+- We model competition between different serotypes. As incidence of some vaccine types decrease, this may give rise to more incidence in other serotypes. As a result, this may lead to under-estimation of vaccine effectiveness against some serotypes
+- Furthermore, because of the low prevalence of carriage for some serotypes, the effectiveness of the vaccine might be more obvious by estimating the rate of carriage rather than presence/absence over a period of two years
+- Finally, by parameterizing the Markov transition model, we can make forward predictions of incidence and prevalence over time.
+
+
+
 
 # Discussion
 
@@ -255,7 +284,7 @@ GGally::ggpairs(data.frame(sim.data$abdata), colour="blue") + theme_bw()
 
 ### Funding statement
 
-This work was funded by MIDAS.
+This work was was supported by Award Number U54GM088558 from the National Institute Of General Medical Sciences. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institute Of General Medical Sciences or the National Institutes of Health.
 
 ### Competing interests
 

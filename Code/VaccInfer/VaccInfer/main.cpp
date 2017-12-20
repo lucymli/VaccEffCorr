@@ -9,8 +9,7 @@
 //  or in Xcode: link libarmadillo.dylib, add -larmadillo and -O2 as Other linker flags,
 //  and add /usr/local/lib to library search paths
 
-#include <iostream>
-#include <stdio.h>      /* printf */
+//#include <cstdio>      /* printf */
 #include <math.h>       /* log */
 #include <iostream>
 #include <fstream>
@@ -19,7 +18,7 @@
 
 
 
-int main () {
+int main (int argc, char *argv[]) {
     Data data;
     data.calc_mean_predictors();
     Param parameters;

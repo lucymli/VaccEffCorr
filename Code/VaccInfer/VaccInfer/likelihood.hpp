@@ -9,7 +9,7 @@
 #ifndef likelihood_hpp
 #define likelihood_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include <armadillo>
 #include <omp.h>
 #include "param.hpp"

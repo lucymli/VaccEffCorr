@@ -38,8 +38,8 @@ void fill_rates (Param parameters, arma::mat & mat) {
         tot_rate = mat(row_i, 0);
         for (int col_i=1; col_i<=parameters.n_tot; col_i++) {
             if (row_i!=col_i) {
-                if (col_i <= parameters.n_vtypes) competition = parameters.get_param(2, 0);
-                else competition = parameters.get_param(2, 1);
+                if (col_i <= parameters.n_vtypes) competition = parameters.get_param(2, col_i-1);
+                else competition = parameters.get_param(2, parameters.n_vtypes);
                 mat(row_i, col_i) = parameters.get_param(0, col_i-1)*competition;
                 tot_rate += mat(row_i, col_i);
             }
@@ -58,7 +58,13 @@ arma::mat fill_rates (arma::mat base_mat, Data data, Param parameters, int ind_i
 //                    new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, choice_of_correlate);
 //                }
 //                else new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, col_i-1);
-                new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, col_i-1);
+                if (ind_i < 642) {
+                    if (col_i < 7) new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, col_i-1);
+                    if (col_i == 11) new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, 2);
+                }
+                else {
+                    new_mat(row_i, col_i) *= parameters.get_inferred_risk(ind_i, col_i-1);
+                }
             }
         }
     }
@@ -75,11 +81,12 @@ arma::mat fill_rates (arma::mat base_mat, Data data, Param parameters, int ind_i
 
 
 double calc_llik (Param &parameters, Data &data, bool use_mean_ab) {
-    int nthread = 4;//omp_get_num_threads();
+    int nthread = 4;//OMP_NUM_THREADS;
     predict_lambda(parameters, data, use_mean_ab);
     std::vector <double> llik_vec(nthread, 0.0);
     arma::mat base (parameters.n_tot+1, parameters.n_tot+1);
     fill_rates(parameters, base);
+    /*
     #pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<nthread; tn++) {
         for (int ind_i=tn; ind_i<data.n_ind; ind_i+=nthread) {
@@ -87,6 +94,7 @@ double calc_llik (Param &parameters, Data &data, bool use_mean_ab) {
             llik_vec[tn] += ind_mat[0, data.get_carriage(ind_i, 0)];
         }
     }
+ */
     double time_diff;
     int previous, now;
     for (int time_t=1; time_t<data.n_time; time_t++) {
