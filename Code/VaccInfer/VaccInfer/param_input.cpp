@@ -24,14 +24,6 @@ Param::Param (std::string param_file_name) {
         if (name=="n_tot") input >> n_tot;
         if (name=="n_params") input >> n_params;
         if (name=="n_ind") input >> n_ind;
-        if (name=="n_blocks") input >> n_blocks;
-        if (name=="num_per_block_array") {
-            for (int i=0; i<n_blocks; ++i) {
-                int num;
-                input >> num;
-                num_per_block.push_back(num);
-            }
-        }
     }
     std::string temp_str;
     double temp_double;
@@ -64,8 +56,8 @@ Param::Param (std::string param_file_name) {
     new_lprior = 0.0;
     block_ptr = 0;
     param_index = 0;
-    accepted.resize(n_blocks, 0);
-    rejected.resize(n_blocks, 0);
+    accepted.resize(n_params, 0);
+    rejected.resize(n_params, 0);
 }
 
 void Param::print_params_to_screen() const {
@@ -113,8 +105,17 @@ double Param::calc_lprior(bool print = false) {
 
 void Param::propose() {
     int ntries = 50;
-    double tempparam = params[param_index];
+    tempparam = params[param_index];
     double transformed_val = transform(params_trans[param_index], tempparam);
     double rnum = rnorm(transformed_val, params_sd[param_index], params_min[param_index], params_max[param_index], ntries);
     params[param_index] = transform(params_trans[param_index], rnum, true);
+}
+
+void Param::initialize_file () {
+    std::ofstream output_file;
+    output_file.open(output_file_name);
+    output_file << "state\tposterior\tlikelihood\tprior";
+    for (int i=0; i<n_params; i++) output_file << "\t" << params_names[i];
+    output_file << std::endl;
+    output_file.close();
 }

@@ -12,10 +12,24 @@
 
 int main () {
     Param parameters("test_params.txt");
-    printf("TEST SUCCESSFUL: Parameters loaded.\n");
     parameters.print_params_to_screen();
-    double prior = parameters.calc_lprior(true);
-    printf("TEST SUCCESSFUL: Prior density is %f \n", prior);
+    printf("====================================\n");
+    printf("TEST SUCCESSFUL: Parameters loaded.\n");
+    printf("====================================\n");
+    double prior = parameters.calc_lprior(false);
+    printf("====================================\n");
+    printf("TEST SUCCESSFUL: Prior density of parameters is %f \n", prior);
+    printf("====================================\n");
+    parameters.param_index = parameters.n_tot;
+    parameters.propose();
+    std::cout << "New value proposed for " << parameters.params_names[parameters.param_index];
+    std::cout << ": " << parameters.params[parameters.param_index];
+    std::cout << ". Old value: " << parameters.tempparam << "." << std::endl;
+    printf("====================================\n");
+    double newprior = parameters.calc_lprior(false);
+    printf("====================================\n");
+    printf("TEST SUCCESSFUL: Prior density of newly proposed parameters is %f \n", newprior);
+    std::cout << "====================================" << std::endl;
     return 0;
 }
 
