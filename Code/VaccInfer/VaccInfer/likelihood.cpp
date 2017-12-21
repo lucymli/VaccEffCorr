@@ -86,15 +86,6 @@ double calc_llik (Param &parameters, Data &data, bool use_mean_ab) {
     std::vector <double> llik_vec(nthread, 0.0);
     arma::mat base (parameters.n_tot+1, parameters.n_tot+1);
     fill_rates(parameters, base);
-    /*
-    #pragma omp parallel for schedule(static, 1)
-    for (int tn=0; tn<nthread; tn++) {
-        for (int ind_i=tn; ind_i<data.n_ind; ind_i+=nthread) {
-            arma::mat ind_mat = arma::expmat(fill_rates(base, data, parameters, ind_i)*60.0);
-            llik_vec[tn] += ind_mat[0, data.get_carriage(ind_i, 0)];
-        }
-    }
- */
     double time_diff;
     int previous, now;
     for (int time_t=1; time_t<data.n_time; time_t++) {
