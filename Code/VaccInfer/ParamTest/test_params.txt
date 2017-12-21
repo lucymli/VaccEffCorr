@@ -3,8 +3,6 @@ n_vtypes 13
 n_tot 31
 n_params 102
 n_ind 200
-n_blocks 5
-num_per_block 31 31 14 13 13
 ParamTable
 lambda1  0.000071830 1  0 0.1 unif  0.00000   0.10000
 lambda2  0.000839210 1  0 0.1 unif  0.00000   0.10000

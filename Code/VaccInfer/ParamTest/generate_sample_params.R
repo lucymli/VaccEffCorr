@@ -3,8 +3,6 @@ params <- list(output_file_name="output.txt",
      n_tot=31,
      n_params=102,
      n_ind=200,
-     n_blocks=5,
-     num_per_block=c(31, 31, 14, 13, 13)
      )
 param.table <- data.frame(
   name = c(unlist(lapply(c("lambda", "mu"), paste0, 1:params$n_tot)), 
