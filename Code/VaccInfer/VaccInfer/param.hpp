@@ -18,10 +18,8 @@
 class Param {
 public:
     double SMALLEST_NUMBER;
-    std::vector <int> num_per_block;
-    std::vector <int> block_starts;
     int param_index;
-    int n_vtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr, n_ind; // counts
+    int n_vtypes, n_tot, n_params, param_ptr, n_ind; // counts
     std::vector <std::string> params_names;
     std::vector <double> params;
     std::vector <std::string> params_trans;
@@ -44,13 +42,6 @@ public:
     double calc_lprior(bool);
     void initialize_file();
     void print_to_file(int);
-    double get_param(int, int) const;
-    double get_inferred_risk(int, int) const;
-    void set_inferred_risk(double, int, int);
-    double sum_risk_by_ind(int) const;
-    double sum_risk_by_type(int) const;
-    double mean_risk_by_ind(int) const;
-    double mean_risk_by_type(int) const;
 };
 
 #endif /* param_hpp */
