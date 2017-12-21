@@ -20,15 +20,16 @@ public:
     double SMALLEST_NUMBER;
     std::vector <int> num_per_block;
     std::vector <int> block_starts;
-    std::vector <int> param_index;
+    int param_index;
     int n_vtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr, n_ind; // counts
     std::vector <std::string> params_names;
-    std::vector <double> params, tempparams;
+    std::vector <double> params;
     std::vector <std::string> params_trans;
     std::vector <double> params_min, params_max;
     std::vector <std::string> params_prior;
     std::vector <double> params_prior1, params_prior2;
-    std::vector <double> relative_lambda_mu, dur_mean, dur_sd;
+    std::vector <double> params_sd;
+    double tempparam;
     std::vector <double> accepted, rejected;
     double llik, new_llik;
     double lprior, new_lprior;
