@@ -9,9 +9,21 @@
 #include <iostream>
 #include "data.hpp"
 
+Data::Data (int num_ind, int num_times, std::vector <double> time_points, int num_predictors) {
+    // Generates an empty Data class
+    for (int i=0; i<(num_ind*num_times); i++) carriage.push_back(0);
+    for (int i=0; i<(num_ind*num_predictors); i++) {
+        predictors.push_back(0);
+        predictor_map.push_back(i%num_predictors);
+    }
+}
 
 double Data::get_carriage(int ind_i, int time_i) const {
     return (carriage[time_i * n_ind + ind_i]);
+}
+
+void Data::set_carriage(int ind_i, int time_i, double val) {
+    cariage[time_i*n_ind + ind_i] = val;
 }
 
 double Data::get_metadata(int ind_i, int i) const {

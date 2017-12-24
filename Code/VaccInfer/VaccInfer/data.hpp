@@ -18,6 +18,8 @@
 class Data {
 public:
     Data ();
+    Data (std::string);
+    Data (int, int, std::vector <double>, int); // generates an empty Data class
     int n_ind;
     int n_time;
     int n_tot;
@@ -29,13 +31,16 @@ public:
     std::vector <double> metadata; // nrow=total number of individuals, ncol=number of covariates
     std::vector <double> metadata_corr; //row=3, ncol=number of covariates; intercept, slope and R2
     std::vector <double> predictors; // nrow=total number of individuals, ncol=number of predictors of carriage (serotype-specific antibody levels)
+    std::vector <double> predictor_map;
     std::vector <double> mean_predictors; //nrow=total number of individuals, ncol=number of predictors of carriage
     std::vector <double> times;
     double get_carriage(int, int) const;
+    void set_carriage(int, int, double);
     double get_metadata(int, int) const;
     double get_predictor(int, int) const;
     void calc_mean_predictors();
     void write_metadata_corr (int) const;
 };
+
 
 #endif /* data_hpp */
