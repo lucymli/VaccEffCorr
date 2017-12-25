@@ -42,8 +42,7 @@ void Param::accept_reject () {
         accepted[param_ptr] += 1;
     }
     else {
-        params.swap(tempparam);
-        inferred_risk.swap(inferred_risk_temp);
+        params[param_ptr] = tempparam;
         rejected[param_ptr] += 1;
     }
     new_llik = SMALLEST_NUMBER;

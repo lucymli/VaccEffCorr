@@ -15,6 +15,7 @@ Param::Param (std::string param_file_name) {
     std::ifstream input;
     input.open(param_file_name);
     std::string name;
+    param_ptr = 0;
     bool param_table_start = false;
     while (!param_table_start) {
         input >> name;
@@ -54,7 +55,6 @@ Param::Param (std::string param_file_name) {
     new_llik = 0.0;
     lprior = 0.0;
     new_lprior = 0.0;
-    block_ptr = 0;
     param_index = 0;
     accepted.resize(n_params, 0);
     rejected.resize(n_params, 0);
