@@ -19,7 +19,7 @@ class Data {
 public:
     Data ();
     Data (std::string);
-    Data (int, int, std::vector <double>, int); // generates an empty Data class
+    Data (int, int, int, std::vector <double>, int); // generates an empty Data class
     int n_ind;
     int n_time;
     int n_tot;
