@@ -89,7 +89,7 @@ double calc_llik (Param &parameters, Data &data, bool use_mean_ab) {
     double time_diff;
     int previous, now;
     for (int time_t=1; time_t<data.n_time; time_t++) {
-        #pragma omp parallel for schedule(static, 1)
+        //#pragma omp parallel for schedule(static, 1)
         for (int tn=0; tn<nthread; tn++) {
             for (int ind_i=tn; ind_i<data.n_ind; ind_i+=nthread) {
                 time_diff = data.times[time_t]-data.times[time_t-1];
