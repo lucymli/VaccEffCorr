@@ -8,10 +8,10 @@
 
 #include "simulation.hpp"
 
-Simulation::Simulation(Param parameters, Data sim_data) {
+Simulation::Simulation(Param &parameters, Data &sim_data) {
     int nthread = 4;//OMP_NUM_THREADS;
     arma::mat base (parameters.n_tot+1, parameters.n_tot+1);
-    if (false) {fill_rates(parameters, base);
+    fill_rates(parameters, base);
     //#pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<nthread; tn++) {
         arma::mat exp_mat = arma::expmat(base*sim_data.times[0]);
@@ -49,5 +49,5 @@ Simulation::Simulation(Param parameters, Data sim_data) {
                 sim_data.set_carriage(ind_i, 0, (double) event-1);
             }
         }
-    }}
+    }
 }

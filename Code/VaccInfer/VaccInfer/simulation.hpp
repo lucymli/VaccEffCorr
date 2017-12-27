@@ -16,7 +16,7 @@
 class Simulation {
 public:
     Simulation ();
-    Simulation (Param, Data);
+    Simulation (Param &, Data &);
 };
 
 
