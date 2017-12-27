@@ -38,6 +38,7 @@ public:
     void set_carriage(int, int, double);
     double get_metadata(int, int) const;
     double get_predictor(int, int) const;
+    int get_predictor_index(int, int) const;
     void calc_mean_predictors();
     void write_metadata_corr (int) const;
 };
