@@ -21,10 +21,10 @@ void adapt (Param &parameters, MCMC mcmc) {
     bool adapt_bool = adapt_this_iter(mcmc);
     if (adapt_bool) {
         double acceptance_rate;
-        acceptance_rate = (double)parameters.accepted[parameters.block_ptr] /
-            (double)(parameters.accepted[parameters.block_ptr]+parameters.rejected[parameters.block_ptr]);
+        acceptance_rate = (double)parameters.accepted[parameters.param_ptr] /
+            (double)(parameters.accepted[parameters.param_ptr]+parameters.rejected[parameters.param_ptr]);
         double change = exp(0.999/2.0*(acceptance_rate-mcmc.adapt_optimal));
-        parameters.params_sd[parameters.block_ptr] *= change;
+        parameters.params_sd[parameters.param_ptr] *= change;
         std::fill(parameters.accepted.begin(), parameters.accepted.end(), 0.0);
         std::fill(parameters.rejected.begin(), parameters.rejected.end(), 0.0);
     }
