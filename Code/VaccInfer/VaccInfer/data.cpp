@@ -42,6 +42,10 @@ double Data::get_predictor(int ind_i, int predict_i) const {
     return (predictors[predict_i * n_ind + ind_i]);
 }
 
+int Data::get_predictor_index(int ind_i, int predict_i) const {
+    return (predictor_map[predict_i * n_ind + ind_i]);
+}
+
 void Data::write_metadata_corr (int iter) const {
     std::ofstream outputfile;
     if (iter==0) {
