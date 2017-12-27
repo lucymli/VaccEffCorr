@@ -11,17 +11,19 @@
 
 #include <iostream>
 #include <armadillo>
-//#include <omp.h>
+F//#include <omp.h>
 #include "param.hpp"
 #include "data.hpp"
 
-double calc_llik (Param &, Data&, bool);
+void set_diag_as_negrowsum (arma::mat &);
+
+double prediction_func (double, double, double);
+
+void predict_lambda (arma::mat &, Param &, Data &, int, bool);
 
 void fill_rates (Param, arma::mat &);
 
-arma::mat fill_rates (arma::mat, Data, Param, int);
-
-double predict_lambda (Param&, Data, bool);
+double calc_llik (Param &, Data&, bool);
 
 
 #endif /* likelihood_hpp */
