@@ -6,7 +6,6 @@
 //  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
 
-#include <stdio.h>
 #include "../VaccInfer/param.hpp"
 
 
