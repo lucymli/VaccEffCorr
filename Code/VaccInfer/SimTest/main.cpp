@@ -17,8 +17,8 @@ int main(int argc, const char * argv[]) {
     std::vector <double> times;
     for (int i=0; i<num_times; i++) times.push_back(times_arr[i]);
     int num_predictors = 13;
-    Data data(num_ind, num_types, num_times, times, num_predictors);
+    Data sim_data(num_ind, num_types, num_times, times, num_predictors);
     Param parameters("test_params.txt");
-    Simulation sim (Param parameters, Data sim_data);
+    Simulation sim (parameters, sim_data);
     return 0;
 }
