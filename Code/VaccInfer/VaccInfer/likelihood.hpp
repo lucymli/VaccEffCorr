@@ -11,7 +11,7 @@
 
 #include <iostream>
 #include <armadillo>
-F//#include <omp.h>
+//#include <omp.h>
 #include "param.hpp"
 #include "data.hpp"
 
@@ -21,7 +21,7 @@ double prediction_func (double, double, double);
 
 void predict_lambda (arma::mat &, Param &, Data &, int, bool);
 
-void fill_rates (Param, arma::mat &);
+void fill_rates (Param &, arma::mat &);
 
 double calc_llik (Param &, Data&, bool);
 
