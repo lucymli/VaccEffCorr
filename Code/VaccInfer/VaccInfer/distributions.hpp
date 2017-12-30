@@ -27,6 +27,14 @@ double runif();
 
 double dunif(double, double, double);
 
+int rsample(int, int);
+
+int rsample(std::vector <double>);
+
+int rsample(int, std::vector <double>);
+
+double rsample(std::vector <double>, std::vector <double>);
+
 double get_rand_num(std::string, double, double);
 
 double get_density(double, std::string, double, double, bool);

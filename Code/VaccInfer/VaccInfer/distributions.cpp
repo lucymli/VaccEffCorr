@@ -54,6 +54,26 @@ double dunif(double x, double lower, double upper) {
     return (dens);
 }
 
+int rsample (int lower, int upper) {
+    boost::random::uniform_int_distribution<> dist(lower, upper);
+    return dist(rng);
+}
+
+int rsample(std::vector <double> probs) {
+    boost::random::discrete_distribution<> dist(probs);
+    return dist(rng);
+}
+
+int rsample(int lower, std::vector <double> probs) {
+    int position = rsample(probs);
+    return (lower + position);
+}
+
+double rsample(std::vector <double> numbers, std::vector <double> probs) {
+    int position = rsample(probs);
+    return (numbers[position]);
+}
+
 double get_density(double value, std::string distribution, double par1, double par2, bool return_log=true) {
     double density = 0.0;
     if (distribution == "unif") {
