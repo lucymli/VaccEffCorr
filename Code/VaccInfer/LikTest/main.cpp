@@ -9,6 +9,41 @@
 #include <assert.h>
 #include "../VaccInfer/likelihood.hpp"
 
+void test_set_diag_as_negrowsum () {
+    int nrow;
+    int num_tests = 100;
+    bool notzero;
+    std::cout << "Testing set_diag_as_negrowsum" << std::endl;
+    for (int i=0; i<num_tests; i++) {
+        arma::mat simple_mat;
+        if (i<=1) {
+            nrow = 3;
+            simple_mat = arma::zeros(nrow, nrow);
+            simple_mat.fill(i);
+        }
+        else {
+            nrow = rsample(3, 200);
+            simple_mat = arma::randu(nrow, nrow);
+        }
+        set_diag_as_negrowsum(simple_mat);
+        arma::colvec sumcheck = sum(simple_mat, 1);
+        notzero = false;
+        for (int x=0; x<sumcheck.size(); x++) {
+            notzero = sumcheck[x] > 1e-8;
+            if (notzero) break;
+        }
+        
+    }
+    
+    
+    std::cout << "Testing set_diag_as_negrowsum " << std::endl;
+    std::cout << "Computed: " << std::endl;
+    std::cout << simple_mat(0,0) << ", " << simple_mat(1,1) << ", " << simple_mat(2,2) << std::endl;
+    std::cout << "\tExpected: " << std::endl;
+    std::cout << "-0.4, -2.5, -0.4" << std::endl;
+    horizontal_rule();
+}
+
 void test_prediction_func (bool verbose=false) {
     std::vector <double> vals = {-2.5};
     while (vals.back() < 2.5) vals.push_back(vals.back() + 0.5);
@@ -46,7 +81,7 @@ void test_prediction_func (bool verbose=false) {
             }
         }
     }
-    std::cout << "====================================" << std::endl;
+    horizontal_rule();
 }
 
 int main(int argc, const char * argv[]) {
@@ -62,18 +97,7 @@ int main(int argc, const char * argv[]) {
     //
     // Test the set_diag_as_negrowsum function
     //
-    arma::mat simple_mat = {
-        {0.5, 0.3, 0.1},
-        {2.5, 0.3, -1.0},
-        {0.4, 0.0, 0.9}
-    };
-    set_diag_as_negrowsum(simple_mat);
-    std::cout << "Testing set_diag_as_negrowsum " << std::endl;
-    std::cout << "Computed: " << std::endl;
-    std::cout << simple_mat(0,0) << ", " << simple_mat(1,1) << ", " << simple_mat(2,2) << std::endl;
-    std::cout << "\tExpected: " << std::endl;
-    std::cout << "-0.4, -2.5, -0.4" << std::endl;
-    printf("====================================\n");
+    test_set_diag_as_negrowsum();
     //
     // Test the prediction_func
     //
