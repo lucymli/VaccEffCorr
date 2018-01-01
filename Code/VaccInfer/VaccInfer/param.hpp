@@ -3,53 +3,45 @@
 //  VaccInfer
 //
 //  Created by Lucy Li on 2/13/17.
-//  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
+//  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
 
 #ifndef param_hpp
 #define param_hpp
 
-#include <stdio.h>
+#include <iostream>
 #include <cmath>
 #include <armadillo>
-#include <boost/random.hpp>
-#include <boost/random/random_device.hpp>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/math/distributions.hpp>
-#include <omp.h>
 #include "data.hpp"
+#include "distributions.hpp"
 
 class Param {
-    int n_vtypes, n_nvtypes, n_tot, n_params, n_blocks, block_ptr, param_ptr; // counts
-    std::vector <double> tempparam, lambda, mu; // parameter vectors
-    std::vector <double> thetaSI, thetaIS, p0, interaction;
-    double frailtySI, frailtyIS; // non-serotype-specific parameters
-    std::vector <double> accepted, rejected, proposal_sd; // mcmc vectors
-    double llik; // overall log likelihood
-    std::vector <double> llik_vec; // log likelihood for each block
-    double lprior; // overall prior
-    std::vector <double> lprior_vec; // prior for each block
-    arma::mat transitions, stationary_prev, transitions_t;
-    std::vector <double> ind_frailty_SI, ind_frailty_IS;
-    bool use_mean_ab;
 public:
-    Param (int, int, int, std::vector<double>, std::vector<double>, bool);
-    void update_transitions(); // transition rates matrix should be altered every time
-    // a new parameter is proposed or rejected, if the parameter affects the transition
-    // rates. currently include lambda, mu, and interaction between serotypes
-    void next_block ();
-//    void calc_expm(bool, int, Data, arma::mat &, arma::mat &, double);
-    void get_rand_frailty (Data &);
-    void initial_calc(Data);
-    double calc_llik (Data);
-    double calc_lprior (int) const;
-    double calc_lprior () const;
-    double uni_propose (double, double, int) const;
-    void alter_param (bool);
-    void mcmc_move (Data, bool, double);
-    double operator [] (int);
-    void initialize_file(std::string);
-    void print_to_file(std::string, int, arma::mat &);
+    double SMALLEST_NUMBER;
+    int param_index;
+    int n_vtypes, n_tot, n_params, param_ptr, n_ind; // counts
+    std::vector <std::string> params_names;
+    std::vector <double> params;
+    std::vector <std::string> params_trans;
+    std::vector <double> params_min, params_max;
+    std::vector <std::string> params_prior;
+    std::vector <double> params_prior1, params_prior2;
+    std::vector <double> params_sd;
+    double tempparam;
+    std::vector <double> accepted, rejected;
+    double llik, new_llik;
+    double lprior, new_lprior;
+    std::string output_file_name;
+    Param ();
+    Param (std::string);
+    void print_params_to_screen() const;
+    double transform(std::string, double, bool) const;
+    void next();
+    void propose();
+    void accept_reject();
+    double calc_lprior(bool);
+    void initialize_file();
+    void print_to_file(int);
 };
 
 #endif /* param_hpp */

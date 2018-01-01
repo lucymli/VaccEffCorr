@@ -37,7 +37,8 @@ simulate_data <- function (
   N <- Nv + Nnv
   patient.data <- data.frame(ID=1:(N), vacc=c(rep(TRUE, Nv), rep(FALSE, Nnv)))
   # The rates of clearance or infection by another serotype
-  rates.matrix <- t(replicate(ntot, lambda*interaction))
+  interactions <- c(rep(interaction[1], ntypes), rep(interaction[2], ntot-ntypes))
+  rates.matrix <- t(replicate(ntot, lambda*interactions))
   rates.matrix <- rbind(c(-sum(lambda), lambda),
                         cbind(mu, rates.matrix))
   for (i in 1:nrow(rates.matrix)) rates.matrix[i,i] <- -sum(rates.matrix[i,-i])
@@ -45,7 +46,7 @@ simulate_data <- function (
   # frailtySI.mat <- mapply(frailty_function, p0, frailtySI, Nv)
   # frailtyIS.mat <- mapply(frailty_function, 0, frailtyIS, Nv)
   # Simulate antibody data:
-  antibody.measurements <- data.frame(t(sapply(1:Nv, function (i) rnorm(ntypes, ab.mean, sqrt(ab.var)))))
+  antibody.measurements <- data.frame(t(sapply(1:Nv, function (i) rnorm(ntypes, rnorm(1, ab.mean, ab.mean), sqrt(ab.var)))))
   colnames(antibody.measurements) <- paste0("IgG.", 1:ntypes)
   ###
   ### Check that the frailty matrices have been simulated correctly
@@ -62,9 +63,10 @@ simulate_data <- function (
     # Modify rates for vaccinated individuals
     if (patient.data$vacc[patient_i]) {
       rates.matrix_i[2:(ntot+1), 2:(ntypes+1)] <- 
-        sweep(rates.matrix[2:(ntot+1), 2:(ntypes+1)], MARGIN=2, unlist(p0-thetaSI*antibody.measurements[patient_i, ]), `*`)
+        sweep(rates.matrix[2:(ntot+1), 2:(ntypes+1)], MARGIN=2, unlist(p0*exp(thetaSI*antibody.measurements[patient_i, ])), `*`)
       # rates.matrix_i[2:(ntypes+1), 1] <- rates.matrix_i[2:(ntypes+1), 1] * thetaIS #* frailtyIS.mat[patient_i, ]
     }
+    rates.matrix_i[rates.matrix_i>1] <- 1
     rates.matrix_i[rates.matrix_i<0] <- 0
     for (i in 1:nrow(rates.matrix_i)) rates.matrix[i,i] <- -sum(rates.matrix_i[i,-i])
     P <- expm(rates.matrix_i*times[1])
@@ -224,3 +226,55 @@ get.ab.lambda.reduction <- function (ab.values, mcmc.output, selected, selected.
   return (results)
 }
 
+get_first_serotype <- function (x) {
+  output <- strsplit(unlist(x), ",", fixed=TRUE) %>% sapply(`[`, 1)
+  output[is.na(output)] <- ""
+  return (output)
+}
+
+extract_serotype <- function (swabs, ignore=NULL) {
+  require(magrittr)
+  subswabs <- swabs
+  if (!is.null(ignore)) subswabs <- swabs[ignore*(-1)]
+  serotypes <- get_first_serotype(subswabs)
+  sapply(serotypes, function (z) {
+    NEW <- TRUE
+    if (!is.null(ignore)) {
+      if (z %in% (strsplit(swabs[ignore], ",", fixed=TRUE)%>%unlist)) NEW <- FALSE
+    }
+    if (NEW) return (z)
+    else return ("")
+  })
+}
+
+
+get_prevalence <- function (swabs, ignore=1:3) {
+  require(magrittr)
+  apply(swabs, 1, function (x) {
+    old.serotypes <- extract_serotype(swabs=x[ignore])
+    new.serotypes <- extract_serotype(swabs=x, ignore=ignore)
+    unique(sapply(new.serotypes, function (z) ifelse(z %in% old.serotypes, "", z)))
+  }) %>% 
+    unlist %>%
+    table() %>%
+    sort(decreasing=TRUE)
+}
+
+get_serotype_id <- function (value, key.table) {
+  if (length(value) > 1) return(sapply(value, get_serotype_id, key.table))
+  else {
+    if (nchar(value)==0) return (0)
+    if (any(key.table[, 2]==value)) index <- which(key.table[, 2]==value)
+    else index <- nrow(key.table)
+    return (key.table[index, 1])
+  }
+}
+
+get_serotype_name <- function (id, key.table) {
+  if (length(id) > 1) return(sapply(id, get_serotype_name, key.table))
+  else {
+    if (id==0) return ("")
+    index <- which(key.table$key==id)
+    return(key.table[index, 2])
+  }
+}

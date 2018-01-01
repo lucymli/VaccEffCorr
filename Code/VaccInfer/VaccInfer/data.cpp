@@ -3,82 +3,68 @@
 //  VaccInfer
 //
 //  Created by Lucy Li on 2/13/17.
-//  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
+//  Copyright © 2017 Lucy M Li, CCDD, HSPH. All rights reserved.
 //
 
+#include <iostream>
 #include "data.hpp"
 
-
-
-Data::Data (std::vector<double> vdata, std::vector<double>nvdata,
-            std::vector<double> abdata, std::vector <double>timings,
-            int vtypes, int nvtypes, int nvacc, int nnvacc) {
-    for (auto i=vdata.begin(); i<vdata.end(); i++) swab_data_v.push_back(*i);
-    for (auto i=nvdata.begin(); i<nvdata.end(); i++) swab_data_nv.push_back(*i);
-    for (auto i=abdata.begin(); i<abdata.end(); i++) ab_data.push_back(*i);
-    swab_times.push_back(timings[0]);
-    for (int i=1; i<timings.size(); i++) swab_times.push_back(timings[i]-timings[i-1]);
-    n_swabs = timings.size();
-    n_vacc = nvacc;
-    n_nvacc = nnvacc;
-    n_vtypes = vtypes;
-    n_nvtypes = nvtypes;
-    n_tot = n_vtypes + n_nvtypes;
-    for (int i=0; i<n_vtypes; i++) {
-        double max_val = abdata[i*n_vacc];
-        double min_val = abdata[i*n_vacc];
-        double mean_val = max_val;
-        for (int ind_i=1; ind_i<n_vacc; ind_i++) {
-            double curr_val = abdata[i*n_vacc+ind_i];
-            mean_val += curr_val;
-            if (curr_val > max_val) max_val = curr_val;
-            if (curr_val < min_val) min_val = curr_val;
-            if (i==0) mean_ab_ind.push_back(curr_val);
-            else mean_ab_ind[ind_i] += curr_val;
-        }
-        max_ab.push_back(max_val);
-        min_ab.push_back(min_val);
-        mean_ab.push_back(mean_val/(double)n_vacc);
+Data::Data (int num_ind, int num_types, int num_times, std::vector <double> time_points, int num_predictors) {
+    // Generates an empty Data class
+    for (int i=0; i<(num_ind*num_times); i++) carriage.push_back(0);
+    for (int i=0; i<(num_ind*num_predictors); i++) {
+        predictors.push_back(0);
+        predictor_map.push_back(i%num_predictors);
     }
-    for (int ind_i=0; ind_i<n_vacc; ind_i++) mean_ab_ind[ind_i] /= (double)n_vtypes;
+    for (int i=0; i<num_times; i++) {
+        times.push_back(time_points[i]);
+    }
+    n_ind = num_ind;
+    n_tot = num_types;
+    n_time = num_times;
+    n_vtypes = num_predictors;
+    n_predictors = num_predictors;
 }
 
-int Data::operator[] (std::string name) const {
-    if (name=="n_vacc") return (n_vacc);
-    else if (name=="n_nvacc") return (n_nvacc);
-    else if (name=="n_swabs") return (n_swabs);
-    else if (name=="n_vtypes") return (n_vtypes);
-    else if (name=="n_nvtypes") return (n_nvtypes);
-    else return(n_tot);
+double Data::get_carriage(int ind_i, int time_i) const {
+    return (carriage[time_i * n_ind + ind_i]);
 }
 
-double Data::get_swab_time (int time) {
-    return (swab_times[time]);
+void Data::set_carriage(int ind_i, int time_i, double val) {
+    carriage[time_i*n_ind + ind_i] = val;
 }
 
-double Data::get_swab_v (int ind_i, int swab_i) {
-    return (swab_data_v[swab_i*n_vacc+ind_i]);
-}
-double Data::get_swab_nv (int ind_i, int swab_i) {
-    return (swab_data_nv[swab_i*n_nvacc+ind_i]);
+double Data::get_metadata(int ind_i, int i) const {
+    return (metadata[i*n_ind + ind_i]);
 }
 
-double Data::get_ab (int ind_i, int type_i) {
-    return(ab_data[type_i*n_vacc+ind_i]);
+double Data::get_predictor(int ind_i, int predict_i) const {
+    return (predictors[predict_i * n_ind + ind_i]);
 }
 
-double Data::get_mean_ab (int type_i) {
-    return(mean_ab[type_i]);
+int Data::get_predictor_index(int ind_i, int predict_i) const {
+    return (predictor_map[predict_i * n_ind + ind_i]);
 }
 
-double Data::get_max_ab (int type_i) {
-    return(max_ab[type_i]);
+void Data::write_metadata_corr (int iter) const {
+    std::ofstream outputfile;
+    if (iter==0) {
+        outputfile.open(metadata_corr_file);
+        for (int i=0; i<n_covariates; i++) outputfile << "slope" << i << " intercept" << i << " R2" << i;
+        outputfile << std::endl;
+    }
+    else {
+        outputfile.open(metadata_corr_file, std::ios::app);
+    }
+    for (int i=0; i<metadata_corr.size(); i++) outputfile << metadata_corr[i] << " ";
+    outputfile << std::endl;
+    outputfile.close();
 }
 
-double Data::get_min_ab (int type_i) {
-    return(min_ab[type_i]);
+void Data::calc_mean_predictors() {
+    for (int i=0; i<n_ind; i++) {
+        mean_predictors.push_back(std::accumulate(predictors.begin()+i*n_predictors, predictors.begin()+(i+1)*n_predictors, 0.0));
+        mean_predictors[n_ind] /= (double) n_predictors;
+    }
 }
 
-double Data::get_mean_ab_ind (int ind_i) {
-    return (mean_ab_ind[ind_i]);
-}
