@@ -11,13 +11,11 @@
 
 #include <stdio.h>
 #include <armadillo>
-#include "likelihood.hpp"
+#include "param.hpp"
 
-class Simulation {
-public:
-    Simulation ();
-    Simulation (Param &, Data &);
-};
+void simulate_predictor (Param &, Data &, std::vector <double>, std::vector <double>);
+
+void simulate (Param &, Data &, bool);
 
 
 #endif /* simulation_hpp */
