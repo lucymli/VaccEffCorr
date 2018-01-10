@@ -13,16 +13,17 @@
 #include <math.h>       /* log */
 #include <iostream>
 #include <fstream>
-#include "mcmc.hpp"
+#include "../VaccInfer/mcmc.hpp"
 
 
 
 
 int main (int argc, char *argv[]) {
-    Data data;
-    data.calc_mean_predictors();
-    Param parameters;
-    MCMC mcmc;
+    std::string dataf (argv[2]), paramf(argv[3]), mcmcf(argv[4]);
+    Data data(dataf);
+//    data.calc_mean_predictors();
+    Param parameters(paramf);
+    MCMC mcmc(mcmcf);
     mcmc.run_mcmc(parameters, data);
     return 0;
 }
