@@ -9,6 +9,12 @@
 #ifndef testing_h
 #define testing_h
 
+#include <stdio.h>
+#include <iostream>
+#include <armadillo>
+
 void horizontal_rule ();
+
+void print_matrix (arma::mat, std::string, int);
 
 #endif /* testing_h */
