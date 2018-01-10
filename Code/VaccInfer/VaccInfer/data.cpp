@@ -42,8 +42,16 @@ double Data::get_predictor(int ind_i, int predict_i) const {
     return (predictors[predict_i * n_ind + ind_i]);
 }
 
+void Data::set_predictor(int ind_i, int predictor_i, double val) {
+    predictors[predictor_i*n_ind + ind_i] = val;
+}
+
 int Data::get_predictor_index(int ind_i, int predict_i) const {
     return (predictor_map[predict_i * n_ind + ind_i]);
+}
+
+void Data::set_predictor_index(int ind_i, int predictor_i, int mapping) {
+    predictor_map[predictor_i*n_ind + ind_i] = mapping;
 }
 
 void Data::write_metadata_corr (int iter) const {
