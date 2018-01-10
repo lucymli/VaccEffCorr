@@ -58,10 +58,11 @@ void test_prediction_func (bool verbose=false) {
     std::cout << "Testing prediction_func" << std::endl;
     std::vector <bool> matched;
     std::vector <double> computed, expected;
+    Param param;
     for (int i=0; i<vals.size(); i++) {
         for (int j=0; j<a.size(); j++) {
             for (int k=0; k<b.size(); k++) {
-                computed.push_back(prediction_func(vals[i], a[j], b[k]));
+                computed.push_back(param.prediction_func(vals[i], a[j], b[k]));
                 expected.push_back(std::min(1.0, a[j]*exp(vals[i]*b[k])));
                 if (verbose) {
                     std::cout << "val = " << vals[i] << "; a = " << a[j] << "; b = " << b[k] << std::endl;
@@ -113,12 +114,20 @@ int main(int argc, const char * argv[]) {
     horizontal_rule();
     print_matrix(base, "LikTestFillRatesMatrix.txt", parameters.n_tot);
     //
-    // Test calc_llik()
+    // Test calc_llik() with no predictors
     //
     Data sim_data(num_ind, num_types, num_times, times, num_predictors);
-    simulate (parameters, sim_data, true);
+    simulate (parameters, sim_data, false);
     double llik = calc_llik(parameters, sim_data, false);
-    std::cout << "Testing calc_llik:" << std::endl;
+    std::cout << "Testing calc_llik with no predictors:" << std::endl;
+    std::cout << "Log Likelihood = " << llik << std::endl;
+    horizontal_rule();
+    std::vector <double> predictor_means = {0.337897650192541, 0.358080135848048, 0.147576770946833, 0.765048005860137, 0.178581563922821, 0.463256490662169, 0.0593742682792419, 0.320398220824545, -0.0123828538755206, 0.145830330191984, 0.406638314189488, 0.524244394092351, 0.263846099885817};
+    std::vector <double> predictor_sd = {0.333371215952248, 0.509179146638132, 0.321682578656864, 0.505434602688631, 0.3685758533035, 0.365853887982019, 0.467887033893633, 0.351904953410131, 0.36599584083075, 0.351151567991839, 0.429909039874033, 0.309507219772883, 0.347467866724146};
+    simulate_predictor(parameters, sim_data, predictor_means, predictor_sd);
+    simulate (parameters, sim_data, true);
+    llik = calc_llik(parameters, sim_data, false);
+    std::cout << "Testing calc_llik with " << num_predictors << " predictors:" << std::endl;
     std::cout << "Log Likelihood = " << llik << std::endl;
     return 0;
 }
