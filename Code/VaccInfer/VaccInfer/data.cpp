@@ -106,21 +106,6 @@ void Data::set_predictor_index(int ind_i, int predictor_i, int mapping) {
     predictor_map[predictor_i*n_ind + ind_i] = mapping;
 }
 
-void Data::write_metadata_corr (int iter) const {
-    std::ofstream outputfile;
-    if (iter==0) {
-        outputfile.open(metadata_corr_file);
-        for (int i=0; i<n_covariates; i++) outputfile << "slope" << i << " intercept" << i << " R2" << i;
-        outputfile << std::endl;
-    }
-    else {
-        outputfile.open(metadata_corr_file, std::ios::app);
-    }
-    for (int i=0; i<metadata_corr.size(); i++) outputfile << metadata_corr[i] << " ";
-    outputfile << std::endl;
-    outputfile.close();
-}
-
 void Data::calc_mean_predictors() {
     for (int i=0; i<n_ind; i++) {
         mean_predictors.push_back(std::accumulate(predictors.begin()+i*n_predictors, predictors.begin()+(i+1)*n_predictors, 0.0));
@@ -131,35 +116,35 @@ void Data::calc_mean_predictors() {
 void Data::print_data_to_file(std::string filename) {
     std::ofstream outputfile;
     outputfile.open(filename);
-    std::cout << "n_ind " << n_ind << std::endl;
-    std::cout << "n_tot " << n_tot << std::endl;
-    std::cout << "n_time " << n_time << std::endl;
-    std::cout << "n_predictors " << n_predictors << std::endl;
-    std::cout << "times";
-    for (int i=0; i<n_time; i++) std::cout << " " << times[i];
-    std::cout << std::endl << "carriage" << std::endl;
+    outputfile << "n_ind " << n_ind << std::endl;
+    outputfile << "n_tot " << n_tot << std::endl;
+    outputfile << "n_time " << n_time << std::endl;
+    outputfile << "n_predictors " << n_predictors << std::endl;
+    outputfile << "times";
+    for (int i=0; i<n_time; i++) outputfile << " " << times[i];
+    outputfile << std::endl << "carriage" << std::endl;
     for (int i=0; i<n_ind; i++) {
-        std::cout << get_carriage(i, 0);
+        outputfile << get_carriage(i, 0);
         for (int j=1; j<n_time; j++) {
-            std::cout << " " << get_carriage(i, j);
+            outputfile << " " << get_carriage(i, j);
         }
-        std::cout << std::endl;
+        outputfile << std::endl;
     }
-    std::cout << "predictors" << std::endl;
+    outputfile << "predictors" << std::endl;
     for (int i=0; i<n_ind; i++) {
-        std::cout << get_predictor(i, 0);
+        outputfile << get_predictor(i, 0);
         for (int j=1; j<n_predictors; j++) {
-            std::cout << " " << get_predictor(i, j);
+            outputfile << " " << get_predictor(i, j);
         }
-        std::cout << std::endl;
+        outputfile << std::endl;
     }
-    std::cout << "predictor_map" << std::endl;
+    outputfile << "predictor_map" << std::endl;
     for (int i=0; i<n_ind; i++) {
-        std::cout << get_predictor_index(i, 0);
+        outputfile << get_predictor_index(i, 0);
         for (int j=1; j<n_predictors; j++) {
-            std::cout << " " << get_predictor_index(i, j);
+            outputfile << " " << get_predictor_index(i, j);
         }
-        std::cout << std::endl;
+        outputfile << std::endl;
     }
-    outputfile.close()
+    outputfile.close();
 }
