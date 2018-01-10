@@ -20,8 +20,7 @@ void set_diag_as_negrowsum (arma::mat &);
 class Param {
 public:
     double SMALLEST_NUMBER;
-    int param_index;
-    int n_vtypes, n_tot, n_params, param_ptr, n_ind; // counts
+    int n_vtypes, n_tot, n_params, param_index, n_ind; // counts
     std::vector <std::string> params_names;
     std::vector <double> params;
     std::vector <std::string> params_trans;

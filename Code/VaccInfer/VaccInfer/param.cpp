@@ -25,7 +25,7 @@ Param::Param (std::string param_file_name) {
     std::ifstream input;
     input.open(param_file_name);
     std::string name;
-    param_ptr = 0;
+    param_index = 0;
     bool param_table_start = false;
     while (!param_table_start) {
         input >> name;
@@ -43,7 +43,7 @@ Param::Param (std::string param_file_name) {
         params_names.push_back(temp_str);
         input >> temp_double;
         params.push_back(temp_double);
-        params_sd.push_back(temp_double*0.5);
+        params_sd.push_back(std::abs(temp_double*0.5));
         input >> temp_str;
         params_trans.push_back(temp_str);
         input >> temp_double;
@@ -86,11 +86,11 @@ void Param::accept_reject () {
     if (accept_this) {
         llik = new_llik;
         lprior = new_lprior;
-        accepted[param_ptr] += 1;
+        accepted[param_index] += 1;
     }
     else {
-        params[param_ptr] = tempparam;
-        rejected[param_ptr] += 1;
+        params[param_index] = tempparam;
+        rejected[param_index] += 1;
     }
     new_llik = SMALLEST_NUMBER;
     new_lprior = SMALLEST_NUMBER;
@@ -146,7 +146,9 @@ double Param::calc_lprior(bool print = false) {
         dens += curr_dens;
         if (print) std::cout << params_names[i] << ": " << curr_dens << "; cumulative: " << dens << std::endl;
     }
-    if (dens < SMALLEST_NUMBER) dens = SMALLEST_NUMBER;
+    if (dens < SMALLEST_NUMBER) {
+        dens = SMALLEST_NUMBER;
+    }
     return (dens);
 }
 
