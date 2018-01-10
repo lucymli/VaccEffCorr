@@ -51,7 +51,7 @@ Data::Data (std::string filename) {
             }
         }
         if (name == "predictor_map") {
-            predictors.resize(n_ind*n_predictors);
+            predictor_map.resize(n_ind*n_predictors);
             for (int i=0; i<n_ind*n_predictors; i++) {
                 input >> integer;
                 set_predictor_index(i%n_ind, i/n_ind, number);
