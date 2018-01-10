@@ -19,6 +19,6 @@ int main(int argc, const char * argv[]) {
     int num_predictors = 13;
     Data sim_data(num_ind, num_types, num_times, times, num_predictors);
     Param parameters("test_params.txt");
-    Simulation sim (parameters, sim_data);
+    simulate(parameters, sim_data, false);
     return 0;
 }
