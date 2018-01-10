@@ -18,6 +18,7 @@ void set_diag_as_negrowsum (arma::mat & rates) {
     }
 }
 
+Param::Param() {}
 
 Param::Param (std::string param_file_name) {
     SMALLEST_NUMBER = -std::numeric_limits<float>::max()+100000.0;
