@@ -32,24 +32,24 @@ void simulate (Param &parameters_input, Data &sim_data_input, bool use_predictor
     //#pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<nthread; tn++) {
         Param parameters = parameters_vec[tn];
-        Data sim_data = data_vec[tn];
+        Data * sim_data = &data_vec[tn];
         double time_interval;
         int prev;
-        for (int ind_i=tn; ind_i<sim_data.n_ind; ind_i+=nthread) {
+        for (int ind_i=tn; ind_i<sim_data->n_ind; ind_i+=nthread) {
             arma::mat ind_mat (base);
-            if (use_predictors) parameters.predict_lambda(ind_mat, sim_data, ind_i, false);
-            for (int time_t=0; time_t<sim_data.n_time; time_t++) {
+            if (use_predictors) parameters.predict_lambda(ind_mat, *sim_data, ind_i, false);
+            for (int time_t=0; time_t<sim_data->n_time; time_t++) {
                 if (time_t>0) {
-                    time_interval = sim_data.times[time_t] - sim_data.times[time_t-1];
-                    prev = sim_data.get_carriage(ind_i, time_t-1);
+                    time_interval = sim_data->times[time_t] - sim_data->times[time_t-1];
+                    prev = sim_data->get_carriage(ind_i, time_t-1);
                 }
                 else {
-                    time_interval = sim_data.times[time_t];
+                    time_interval = sim_data->times[time_t];
                     prev = 0;
                 }
                 arma::mat exp_mat = arma::expmat(base*time_interval);
                 std::vector <double> cumulative (1, exp_mat(prev, 0));
-                for (int i=1; i<=sim_data.n_tot; i++) cumulative.push_back(cumulative[i-1]+exp_mat(prev, i));
+                for (int i=1; i<=sim_data->n_tot; i++) cumulative.push_back(cumulative[i-1]+exp_mat(prev, i));
                 double rnum = runif();
                 double x = cumulative[0];
                 int event = 0;
@@ -58,7 +58,15 @@ void simulate (Param &parameters_input, Data &sim_data_input, bool use_predictor
                     x = cumulative[event];
                     if (event >= parameters.n_tot) break;
                 }
-                sim_data.set_carriage(ind_i, 0, (double) event);
+                sim_data->set_carriage(ind_i, time_t, (double) event);
+            }
+        }
+    }
+    for (int tn=0; tn<nthread; tn++) {
+        Data * sim_data = &data_vec[tn];
+        for (int ind_i=tn; ind_i<sim_data->n_ind; ind_i+=nthread) {
+            for (int time_t=0; time_t<sim_data->n_time; time_t++) {
+                sim_data_input.set_carriage(ind_i, time_t, sim_data->get_carriage(ind_i, time_t));
             }
         }
     }
