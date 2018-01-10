@@ -42,7 +42,7 @@ public:
     int get_predictor_index(int, int) const;
     void set_predictor_index(int ind_i, int predictor_i, int mapping);
     void calc_mean_predictors();
-    void write_metadata_corr (int) const;
+    void print_data_to_file(std::string);
 };
 
 

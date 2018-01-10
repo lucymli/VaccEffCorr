@@ -128,3 +128,38 @@ void Data::calc_mean_predictors() {
     }
 }
 
+void Data::print_data_to_file(std::string filename) {
+    std::ofstream outputfile;
+    outputfile.open(filename);
+    std::cout << "n_ind " << n_ind << std::endl;
+    std::cout << "n_tot " << n_tot << std::endl;
+    std::cout << "n_time " << n_time << std::endl;
+    std::cout << "n_predictors " << n_predictors << std::endl;
+    std::cout << "times";
+    for (int i=0; i<n_time; i++) std::cout << " " << times[i];
+    std::cout << std::endl << "carriage" << std::endl;
+    for (int i=0; i<n_ind; i++) {
+        std::cout << get_carriage(i, 0);
+        for (int j=1; j<n_time; j++) {
+            std::cout << " " << get_carriage(i, j);
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "predictors" << std::endl;
+    for (int i=0; i<n_ind; i++) {
+        std::cout << get_predictor(i, 0);
+        for (int j=1; j<n_predictors; j++) {
+            std::cout << " " << get_predictor(i, j);
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "predictor_map" << std::endl;
+    for (int i=0; i<n_ind; i++) {
+        std::cout << get_predictor_index(i, 0);
+        for (int j=1; j<n_predictors; j++) {
+            std::cout << " " << get_predictor_index(i, j);
+        }
+        std::cout << std::endl;
+    }
+    outputfile.close()
+}
