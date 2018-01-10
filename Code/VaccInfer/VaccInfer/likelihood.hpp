@@ -15,15 +15,9 @@
 #include "param.hpp"
 #include "data.hpp"
 
-void set_diag_as_negrowsum (arma::mat &);
 
-double prediction_func (double, double, double);
 
-void predict_lambda (arma::mat &, Param &, Data &, int, bool);
-
-void fill_rates (Param &, arma::mat &);
-
-double calc_llik (Param &, Data&, bool);
+double calc_llik (Param , Data, bool);
 
 
 #endif /* likelihood_hpp */

@@ -15,6 +15,8 @@
 #include "data.hpp"
 #include "distributions.hpp"
 
+void set_diag_as_negrowsum (arma::mat &);
+
 class Param {
 public:
     double SMALLEST_NUMBER;
@@ -42,6 +44,11 @@ public:
     double calc_lprior(bool);
     void initialize_file();
     void print_to_file(int);
+    double prediction_func (double, double, double);
+    void predict_lambda (arma::mat &, Data &, int, bool);
+    void fill_rates (arma::mat &);
 };
+
+
 
 #endif /* param_hpp */

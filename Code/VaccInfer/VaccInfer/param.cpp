@@ -11,54 +11,11 @@
 
 double STATIONARY_TIME = 300.0;
 
-
-
-void print_matrix (arma::mat & mat_to_output, std::string filename, int mat_dim) {
-    std::ofstream outputfile;
-    outputfile.open(filename);
-    for (int row_i=0; row_i<=mat_dim; row_i++) {
-        outputfile << mat_to_output(row_i, 0);
-        for (int col_i=1; col_i<=mat_dim; col_i++) {
-            outputfile << "\t" << mat_to_output(row_i, col_i);
-        }
-        outputfile << std::endl;
+void set_diag_as_negrowsum (arma::mat & rates) {
+    rates.elem(find(rates < 0.0)).zeros();
+    for (int i=0; i<rates.n_rows; i++) {
+        rates(i, i) =  - (accu(rates.row(i)) - rates(i, i));
     }
-    outputfile.close();
-}
-
-
-void Param::next () {
-    param_index++;
-    if (param_index==n_params) param_index = 0;
-}
-
-void Param::accept_reject () {
-    bool accept_this = false;
-    double ratio = (new_llik+new_lprior)-(llik+lprior);
-    double z = log(runif());
-    if (z < ratio) accept_this = true;
-    if (accept_this) {
-        llik = new_llik;
-        lprior = new_lprior;
-        accepted[param_ptr] += 1;
-    }
-    else {
-        params[param_ptr] = tempparam;
-        rejected[param_ptr] += 1;
-    }
-    new_llik = SMALLEST_NUMBER;
-    new_lprior = SMALLEST_NUMBER;
-}
-
-void Param::print_to_file (int iter) {
-    std::ofstream output_file;
-    output_file.open(output_file_name, std::ofstream::app);
-    output_file << iter << "\t" << llik+lprior << "\t" << llik << "\t" << lprior;
-    for (int i=0; i<n_params; i++) {
-        output_file << "\t" << params[i];
-    }
-    output_file << std::endl;
-    output_file.close();
 }
 
 
@@ -110,6 +67,43 @@ Param::Param (std::string param_file_name) {
     param_index = 0;
     accepted.resize(n_params, 0);
     rejected.resize(n_params, 0);
+}
+
+
+
+
+void Param::next () {
+    param_index++;
+    if (param_index==n_params) param_index = 0;
+}
+
+void Param::accept_reject () {
+    bool accept_this = false;
+    double ratio = (new_llik+new_lprior)-(llik+lprior);
+    double z = log(runif());
+    if (z < ratio) accept_this = true;
+    if (accept_this) {
+        llik = new_llik;
+        lprior = new_lprior;
+        accepted[param_ptr] += 1;
+    }
+    else {
+        params[param_ptr] = tempparam;
+        rejected[param_ptr] += 1;
+    }
+    new_llik = SMALLEST_NUMBER;
+    new_lprior = SMALLEST_NUMBER;
+}
+
+void Param::print_to_file (int iter) {
+    std::ofstream output_file;
+    output_file.open(output_file_name, std::ofstream::app);
+    output_file << iter << "\t" << llik+lprior << "\t" << llik << "\t" << lprior;
+    for (int i=0; i<n_params; i++) {
+        output_file << "\t" << params[i];
+    }
+    output_file << std::endl;
+    output_file.close();
 }
 
 void Param::print_params_to_screen() const {
@@ -170,5 +164,56 @@ void Param::initialize_file () {
     for (int i=0; i<n_params; i++) output_file << "\t" << params_names[i];
     output_file << std::endl;
     output_file.close();
+}
+
+double Param::prediction_func (double val, double a, double b) {
+    double result = a * exp(val * b);
+    if (result < 0) result = 0.0;
+    if (result > 1) result = 1.0;
+    return result;
+}
+
+
+void Param::predict_lambda (arma::mat & rates, Data &data, int ind_i, bool use_mean_ab) {
+    double a, b;
+    double predictor;
+    int pos;
+    double multiplier;
+    for (int type_i=0; type_i<n_vtypes; type_i++) {
+        a = params[n_tot*2+type_i];
+        b = params[n_tot*2+n_vtypes+type_i];
+        pos = data.get_predictor_index(ind_i, type_i);
+        if (pos < 0) predictor = 1.0;
+        else {
+            if (use_mean_ab) predictor = data.mean_predictors[ind_i];
+            else {
+                predictor = data.get_predictor(ind_i, pos);
+            }
+            multiplier = prediction_func(predictor, a, b);
+            if (multiplier < 1.0) {
+                rates.col(type_i+1) *= multiplier;
+            }
+            set_diag_as_negrowsum(rates);
+        }
+    }
+    
+}
+
+void Param::fill_rates (arma::mat & mat) {
+    for (int i=0; i<n_tot; i++) {
+        mat(i+1, 0) = params[n_tot+i]; // mu
+        mat(0, i+1) = params[i]; // lambda
+    }
+    double competition;
+    for (int row_i=1; row_i<=n_tot; row_i++) {
+        for (int col_i=1; col_i<=n_tot; col_i++) {
+            if (row_i!=col_i) {
+                if (col_i <= n_vtypes) competition = params[n_tot*2+col_i-1];
+                else competition = params[n_tot*2+n_vtypes];
+                mat(row_i, col_i) = params[col_i-1]*competition;
+            }
+        }
+    }
+    set_diag_as_negrowsum(mat);
 }
 
