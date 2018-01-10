@@ -6,13 +6,31 @@
 //  Copyright © 2017 Lucy M Li, CCDD, HPSH. All rights reserved.
 //
 
-#include <assert.h>
+#include "../VaccInfer/simulation.hpp"
 #include "../VaccInfer/likelihood.hpp"
+#include "../VaccInfer/testing.hpp"
+
+bool check_all_rows_sum_to_zero (arma::mat matrix, bool verbose) {
+    set_diag_as_negrowsum(matrix);
+    arma::colvec sumcheck = sum(matrix, 1);
+    bool notzero = false;
+    for (int x=0; x<sumcheck.size(); x++) {
+        notzero = sumcheck[x] > 1e-8;
+        if (notzero) {
+            std::cout << "Row " << x << " does not sum to zero." << std::endl;
+            break;
+        }
+    }
+    if (verbose) {
+        if (!notzero) std::cout << "TEST SUCCESS. All rows sum to 0." << std::endl;
+    }
+    return !notzero;
+}
 
 void test_set_diag_as_negrowsum () {
     int nrow;
     int num_tests = 100;
-    bool notzero;
+    std::vector <bool> test_results;
     std::cout << "Testing set_diag_as_negrowsum" << std::endl;
     for (int i=0; i<num_tests; i++) {
         arma::mat simple_mat;
@@ -25,22 +43,8 @@ void test_set_diag_as_negrowsum () {
             nrow = rsample(3, 200);
             simple_mat = arma::randu(nrow, nrow);
         }
-        set_diag_as_negrowsum(simple_mat);
-        arma::colvec sumcheck = sum(simple_mat, 1);
-        notzero = false;
-        for (int x=0; x<sumcheck.size(); x++) {
-            notzero = sumcheck[x] > 1e-8;
-            if (notzero) break;
-        }
-        
+        test_results.push_back(check_all_rows_sum_to_zero(simple_mat, false));
     }
-    
-    
-    std::cout << "Testing set_diag_as_negrowsum " << std::endl;
-    std::cout << "Computed: " << std::endl;
-    std::cout << simple_mat(0,0) << ", " << simple_mat(1,1) << ", " << simple_mat(2,2) << std::endl;
-    std::cout << "\tExpected: " << std::endl;
-    std::cout << "-0.4, -2.5, -0.4" << std::endl;
     horizontal_rule();
 }
 
@@ -88,11 +92,8 @@ int main(int argc, const char * argv[]) {
     int num_ind = 500;
     int num_types = 31;
     int num_times = 4;
-    double times_arr[4] = {182, 213, 365, 395};
-    std::vector <double> times;
-    for (int i=0; i<num_times; i++) times.push_back(times_arr[i]);
+    std::vector <double> times = {182, 213, 365, 395};
     int num_predictors = 13;
-    Data data(num_ind, num_types, num_times, times, num_predictors);
     Param parameters("../ParamTest/test_params.txt");
     //
     // Test the set_diag_as_negrowsum function
@@ -102,6 +103,22 @@ int main(int argc, const char * argv[]) {
     // Test the prediction_func
     //
     test_prediction_func ();
+    //
+    // Test fill_rates
+    //
     arma::mat base (parameters.n_tot+1, parameters.n_tot+1);
+    parameters.fill_rates(base);
+    std::cout << "Testing fill_rates:" << std::endl;
+    bool check_result = check_all_rows_sum_to_zero (base, true);
+    horizontal_rule();
+    print_matrix(base, "LikTestFillRatesMatrix.txt", parameters.n_tot);
+    //
+    // Test calc_llik()
+    //
+    Data sim_data(num_ind, num_types, num_times, times, num_predictors);
+    simulate (parameters, sim_data, true);
+    double llik = calc_llik(parameters, sim_data, false);
+    std::cout << "Testing calc_llik:" << std::endl;
+    std::cout << "Log Likelihood = " << llik << std::endl;
     return 0;
 }
