@@ -186,8 +186,7 @@ void Param::predict_lambda (arma::mat & rates, Data &data, int ind_i, bool use_m
         a = params[n_tot*2+type_i];
         b = params[n_tot*2+n_vtypes+type_i];
         pos = data.get_predictor_index(ind_i, type_i);
-        if (pos < 0) predictor = 1.0;
-        else {
+        if (pos >= 0) {
             if (use_mean_ab) predictor = data.mean_predictors[ind_i];
             else {
                 predictor = data.get_predictor(ind_i, pos);
