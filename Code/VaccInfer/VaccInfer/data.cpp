@@ -23,7 +23,7 @@ Data::Data (std::string filename) {
     std::string name;
     double number;
     int integer;
-    while (input.good()) {
+    while (!input.eof()) {
         input >> name;
         if (name == "n_ind") input >> n_ind;
         if (name == "n_tot") input >> n_tot;
@@ -38,24 +38,31 @@ Data::Data (std::string filename) {
         }
         if (name == "carriage") {
             carriage.resize(n_ind*n_time);
-            for (int i=0; i<n_ind*n_time; i++) {
-                input >> number;
-                set_carriage(i%n_ind, i/n_ind, number);
+            for (int i=0; i<n_ind; i++) {
+                for (int j=0; j<n_time; j++) {
+                    input >> integer;
+                    set_carriage(i, j, integer);
+                }
             }
         }
         if (name == "predictors") {
             predictors.resize(n_ind*n_predictors);
-            for (int i=0; i<n_ind*n_predictors; i++) {
-                input >> number;
-                set_predictor(i%n_ind, i/n_ind, number);
+            for (int i=0; i<n_ind; i++) {
+                for (int j=0; j<n_predictors; j++) {
+                    input >> number;
+                    set_predictor(i, j, number);
+                }
             }
         }
         if (name == "predictor_map") {
             predictor_map.resize(n_ind*n_predictors);
-            for (int i=0; i<n_ind*n_predictors; i++) {
-                input >> integer;
-                set_predictor_index(i%n_ind, i/n_ind, number);
+            for (int i=0; i<n_ind; i++) {
+                for (int j=0; j<n_predictors; j++) {
+                    input >> integer;
+                    set_predictor_index(i, j, integer);
+                }
             }
+            break;
         }
     }
     input.close();
@@ -78,11 +85,11 @@ Data::Data (int num_ind, int num_types, int num_times, std::vector <double> time
     n_predictors = num_predictors;
 }
 
-double Data::get_carriage(int ind_i, int time_i) const {
+int Data::get_carriage(int ind_i, int time_i) const {
     return (carriage[time_i * n_ind + ind_i]);
 }
 
-void Data::set_carriage(int ind_i, int time_i, double val) {
+void Data::set_carriage(int ind_i, int time_i, int val) {
     carriage[time_i*n_ind + ind_i] = val;
 }
 

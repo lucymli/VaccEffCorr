@@ -27,15 +27,15 @@ public:
     int n_covariates;
     int n_predictors;
     std::string metadata_corr_file;
-    std::vector <double> carriage; // nrow=total number of individuals, ncol=number of swabs
+    std::vector <int> carriage; // nrow=total number of individuals, ncol=number of swabs
     std::vector <double> metadata; // nrow=total number of individuals, ncol=number of covariates
     std::vector <double> metadata_corr; //row=3, ncol=number of covariates; intercept, slope and R2
     std::vector <double> predictors; // nrow=total number of individuals, ncol=number of predictors of carriage (serotype-specific antibody levels)
-    std::vector <double> predictor_map;
+    std::vector <int> predictor_map;
     std::vector <double> mean_predictors; //nrow=total number of individuals, ncol=number of predictors of carriage
     std::vector <double> times;
-    double get_carriage(int, int) const;
-    void set_carriage(int, int, double);
+    int get_carriage(int, int) const;
+    void set_carriage(int, int, int);
     double get_metadata(int, int) const;
     double get_predictor(int, int) const;
     void set_predictor(int, int, double);
