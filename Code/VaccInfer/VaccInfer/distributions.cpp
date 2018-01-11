@@ -8,7 +8,7 @@
 
 #include "distributions.hpp"
 
-boost::mt19937 rng(NULL);
+boost::mt19937 rng(time(NULL));
 
 double rnorm(double mean, double sd, double lower, double upper, int num_tries) {
     double val = rnorm(mean, sd);
