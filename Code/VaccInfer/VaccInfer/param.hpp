@@ -12,6 +12,7 @@
 #include <iostream>
 #include <cmath>
 #include <armadillo>
+//#include <omp.h>
 #include "data.hpp"
 #include "distributions.hpp"
 

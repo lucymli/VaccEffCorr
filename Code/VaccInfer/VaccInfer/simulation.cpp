@@ -20,7 +20,7 @@ void simulate_predictor (Param & parameters, Data &sim_data, std::vector <double
 }
 
 void simulate (Param &parameters_input, Data &sim_data_input, bool use_predictors) {
-    int nthread = 4;//OMP_NUM_THREADS;
+    int nthread = 4;//omp_get_max_threads() ;
     arma::mat base (parameters_input.n_tot+1, parameters_input.n_tot+1);
     parameters_input.fill_rates(base);
     std::vector <Param> parameters_vec;

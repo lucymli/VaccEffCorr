@@ -199,7 +199,6 @@ void Param::predict_lambda (arma::mat & rates, Data &data, int ind_i, bool use_m
             set_diag_as_negrowsum(rates);
         }
     }
-    
 }
 
 void Param::fill_rates (arma::mat & mat) {

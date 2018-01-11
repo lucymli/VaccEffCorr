@@ -9,14 +9,8 @@
 #include "likelihood.hpp"
 
 
-
-
-
-
-
 double calc_llik (Param parameters_input, Data data_input, bool use_mean_ab) {
-    int nthread = 4;//OMP_NUM_THREADS;
-    //#pragma omp parallel for schedule(static, 1)
+    int nthread = 4;//omp_get_max_threads()
     std::vector <Param> param_vec;
     std::vector <Data> data_vec;
     std::vector <double> llik_vec;
@@ -25,6 +19,7 @@ double calc_llik (Param parameters_input, Data data_input, bool use_mean_ab) {
         data_vec.push_back(data_input);
         llik_vec.push_back(0.0);
     }
+    //#pragma omp parallel for schedule(static, 1)
     for (int tn=0; tn<nthread; tn++) {
         double lik;
         Param parameters = param_vec[tn];

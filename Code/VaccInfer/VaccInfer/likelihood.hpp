@@ -11,7 +11,6 @@
 
 #include <iostream>
 #include <armadillo>
-//#include <omp.h>
 #include "param.hpp"
 #include "data.hpp"
 
