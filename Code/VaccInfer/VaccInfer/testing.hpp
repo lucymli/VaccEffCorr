@@ -15,6 +15,6 @@
 
 void horizontal_rule ();
 
-void print_matrix (arma::mat, std::string, int);
+void print_matrix (arma::mat, std::string, int, int);
 
 #endif /* testing_h */
