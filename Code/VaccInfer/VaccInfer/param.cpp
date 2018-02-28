@@ -12,9 +12,15 @@
 double STATIONARY_TIME = 300.0;
 
 void set_diag_as_negrowsum (arma::mat & rates) {
-    rates.elem(find(rates < 0.0)).zeros();
     for (int i=0; i<rates.n_rows; i++) {
-        rates(i, i) =  - (accu(rates.row(i)) - rates(i, i));
+        double rowsum = 0.0;
+        for (int j=0; j<rates.n_cols; j++) {
+            if (i!=j) {
+                if (rates(i, j) < 0.0) rates(i, j) = 0.0;
+                else rowsum += rates(i, j);
+            }
+        }
+        rates(i, i) =  - rowsum;
     }
 }
 
@@ -170,7 +176,7 @@ void Param::initialize_file () {
 }
 
 double Param::prediction_func (double val, double a, double b) {
-    double result = a * exp(val * b);
+    double result = a * exp(val * b);//1.0/(1.0+exp(a)*exp(val*b));
     if (result < 0) result = 0.0;
     if (result > 1) result = 1.0;
     return result;
@@ -209,8 +215,9 @@ void Param::fill_rates (arma::mat & mat) {
     for (int row_i=1; row_i<=n_tot; row_i++) {
         for (int col_i=1; col_i<=n_tot; col_i++) {
             if (row_i!=col_i) {
-                if (col_i <= n_vtypes) competition = params[n_tot*2+col_i-1];
-                else competition = params[n_tot*2+n_vtypes];
+                //if (col_i <= n_vtypes)
+                competition = params[n_tot*2+col_i-1];
+                //else competition = params[n_tot*2+n_vtypes];
                 mat(row_i, col_i) = params[col_i-1]*competition;
             }
         }
