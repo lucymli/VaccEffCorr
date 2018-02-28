@@ -16,7 +16,9 @@
 
 
 
-double calc_llik (Param , Data, bool);
+double calc_llik (Param, Data, bool);
+
+void get_multinom_prob (Param, Data, double, arma::mat &, bool);
 
 
 #endif /* likelihood_hpp */
