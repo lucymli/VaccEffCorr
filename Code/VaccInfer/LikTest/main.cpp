@@ -112,7 +112,7 @@ int main(int argc, const char * argv[]) {
     std::cout << "Testing fill_rates:" << std::endl;
     bool check_result = check_all_rows_sum_to_zero (base, true);
     horizontal_rule();
-    print_matrix(base, "LikTestFillRatesMatrix.txt", parameters.n_tot);
+    print_matrix(base, "LikTestFillRatesMatrix.txt", parameters.n_tot, parameters.n_tot);
     //
     // Test calc_llik() with no predictors
     //
