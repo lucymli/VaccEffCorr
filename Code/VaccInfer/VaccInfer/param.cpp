@@ -189,8 +189,8 @@ void Param::predict_lambda (arma::mat & rates, Data &data, int ind_i, bool use_m
     int pos;
     double multiplier;
     for (int type_i=0; type_i<n_vtypes; type_i++) {
-        a = params[n_tot*2+type_i];
-        b = params[n_tot*2+n_vtypes+type_i];
+        a = params[n_tot*3+type_i];
+        b = params[n_tot*3+n_vtypes+type_i];
         pos = data.get_predictor_index(ind_i, type_i);
         if (pos >= 0) {
             if (use_mean_ab) predictor = data.mean_predictors[ind_i];
@@ -215,9 +215,7 @@ void Param::fill_rates (arma::mat & mat) {
     for (int row_i=1; row_i<=n_tot; row_i++) {
         for (int col_i=1; col_i<=n_tot; col_i++) {
             if (row_i!=col_i) {
-                //if (col_i <= n_vtypes)
                 competition = params[n_tot*2+col_i-1];
-                //else competition = params[n_tot*2+n_vtypes];
                 mat(row_i, col_i) = params[col_i-1]*competition;
             }
         }
