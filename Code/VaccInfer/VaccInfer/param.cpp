@@ -178,7 +178,6 @@ void Param::initialize_file () {
 double Param::prediction_func (double val, double a, double b) {
     double result = a * exp(val * b);//1.0/(1.0+exp(a)*exp(val*b));
     if (result < 0) result = 0.0;
-    if (result > 1) result = 1.0;
     return result;
 }
 
@@ -198,9 +197,7 @@ void Param::predict_lambda (arma::mat & rates, Data &data, int ind_i, bool use_m
                 predictor = data.get_predictor(ind_i, pos);
             }
             multiplier = prediction_func(predictor, a, b);
-            if (multiplier < 1.0) {
-                rates.col(type_i+1) *= multiplier;
-            }
+            rates.col(type_i+1) *= multiplier;
             set_diag_as_negrowsum(rates);
         }
     }
