@@ -149,7 +149,10 @@ double Param::calc_lprior(bool print = false) {
     for (int i=0; i<params.size(); i++) {
         param_value = transform(params_trans[i], params[i]);
         curr_dens = get_density(param_value, params_prior[i], params_prior1[i], params_prior2[i], true);
-        dens += curr_dens;
+        if ((param_value < params_min[i]) | (param_value > params_max[i])) {
+            dens = SMALLEST_NUMBER;
+        }
+        else dens += curr_dens;
         if (print) std::cout << params_names[i] << ": " << curr_dens << "; cumulative: " << dens << std::endl;
     }
     if (dens < SMALLEST_NUMBER) {
@@ -178,6 +181,12 @@ void Param::initialize_file () {
 double Param::prediction_func (double val, double a, double b) {
     double result = a * exp(val * b);//1.0/(1.0+exp(a)*exp(val*b));
     if (result < 0) result = 0.0;
+    if (b <= 0.0) {
+        if (result >= 1.0) result = 1.0;
+    }
+    else {
+        if (result <1.0) result = 1.0;
+    }
     return result;
 }
 
