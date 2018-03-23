@@ -108,6 +108,9 @@ double get_density(double value, std::string distribution, double par1, double p
     else if (distribution == "norm") {
         density += dnorm(value, par1, par2);
     }
+    else if (distribution == "lnorm") {
+        density += dlnorm(value, par1, par2);
+    }
     if (!return_log) density = std::exp(density);
     return (density);
 }
@@ -119,6 +122,9 @@ double get_rand_num(std::string distribution, double par1, double par2) {
     }
     else if (distribution == "norm") {
         rnum = rnorm(par1, par2);
+    }
+    else if (distribution == "lnorm") {
+        rnum = rlnorm(par1, par2);
     }
     return (rnum);
 }
