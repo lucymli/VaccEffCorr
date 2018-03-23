@@ -35,6 +35,19 @@ double dnorm(double x, double mean, double sd) {
     return (dens);
 }
 
+double rlnorm(double mean, double sd) {
+    boost::lognormal_distribution<> lognormal(mean, sd);
+    boost::variate_generator<boost::mt19937&, boost::lognormal_distribution<> > var_lnor(rng, lognormal);
+    double val = var_lnor();
+    return (val);
+}
+
+double dlnorm(double x, double mean, double sd) {
+    boost::math::lognormal_distribution<>density(mean, sd);
+    double dens = log(boost::math::pdf(density, x));
+    return (dens);
+}
+
 double runif(double lower, double upper) {
     boost::random::uniform_real_distribution <double> unif(lower, upper);
     double val = unif(rng);
