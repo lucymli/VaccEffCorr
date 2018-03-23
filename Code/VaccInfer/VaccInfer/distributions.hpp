@@ -21,6 +21,12 @@ double rnorm(double, double);
 
 double dnorm(double, double, double);
 
+double rlnorm(double, double, double, double, int);
+
+double rlnorm(double, double);
+
+double dlnorm(double, double, double);
+
 double runif(double, double);
 
 double runif();

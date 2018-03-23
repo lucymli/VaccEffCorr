@@ -35,6 +35,19 @@ double dnorm(double x, double mean, double sd) {
     return (dens);
 }
 
+double rlnorm(double mean, double sd, double lower, double upper, int num_tries) {
+    double val = rlnorm(mean, sd);
+    if (num_tries > 0) {
+        while (val < lower | val > upper) {
+            val = rlnorm(mean, sd);
+            num_tries--;
+            if (num_tries < 0) break;
+        }
+    }
+    return (val);
+}
+
+
 double rlnorm(double mean, double sd) {
     boost::lognormal_distribution<> lognormal(mean, sd);
     boost::variate_generator<boost::mt19937&, boost::lognormal_distribution<> > var_lnor(rng, lognormal);
