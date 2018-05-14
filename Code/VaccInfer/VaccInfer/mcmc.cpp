@@ -13,17 +13,18 @@
 bool adapt_this_iter (MCMC mcmc) {
     if (mcmc.iter>=mcmc.adapt_until) return (false);
     if ((mcmc.iter%mcmc.adapt_every)!=0) return (false);
+    if (mcmc.iter==0) return (false);
     return (true);
 }
 
 void adapt (Param &parameters, MCMC mcmc) {
     bool adapt_bool = adapt_this_iter(mcmc);
     if (adapt_bool) {
-        double acceptance_rate;
-        acceptance_rate = (double)parameters.accepted[parameters.param_index] /
-            (double)(parameters.accepted[parameters.param_index]+parameters.rejected[parameters.param_index]);
-        double change = exp(0.999/2.0*(acceptance_rate-mcmc.adapt_optimal));
-        parameters.params_sd[parameters.param_index] *= change;
+        for (int i=0; i<parameters.n_params; i++) {
+            double acceptance_rate = (double)parameters.accepted[i] / (double)(parameters.accepted[i]+parameters.rejected[i]);
+            double change = exp(0.999/2.0*(acceptance_rate-mcmc.adapt_optimal));
+            parameters.params_sd[i] *= change;
+        }
         std::fill(parameters.accepted.begin(), parameters.accepted.end(), 0.0);
         std::fill(parameters.rejected.begin(), parameters.rejected.end(), 0.0);
     }
