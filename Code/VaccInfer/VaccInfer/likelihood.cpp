@@ -30,7 +30,7 @@ double calc_llik (Param parameters_input, Data data_input, bool use_mean_ab) {
         int previous, now;
         for (int ind_i=tn; ind_i<data.n_ind; ind_i+=nthread) {
             arma::mat ind_mat (base);
-            for (int time_t=0; time_t<data.n_time; time_t++) {
+            for (int time_t=1; time_t<data.n_time; time_t++) {
                 if (time_t > 0) {
                     parameters.predict_lambda(ind_mat, data, ind_i, use_mean_ab);
                     time_diff = data.times[time_t]-data.times[time_t-1];
