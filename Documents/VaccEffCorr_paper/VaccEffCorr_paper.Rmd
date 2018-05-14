@@ -1,11 +1,11 @@
 ---
 title: 
-  - "Simultaneously estimating correlates of protection and vaccine efficacy"
-  - "\textbf{Short title:}Estimating vaccine efficacy using serotype-specific antibody titers"
+  - "Estimating the efficacy of the pneumococcal conjugate vaccine using correlates of protection"
+  - "\textbf{Short title:}Estimating PCV vaccine efficacy using correlates of protection"
 author: 
   - "Lucy M Li$^{1}$^[Corresponding author: Lucy Li, <luli@hsph.harvard.edu>], Ron Dagan$^2$, Marc Lipsitch$^1$"
-  - "$^1$Center for Communicable Disease Dynamics, Harvard T.H. Chan School of Public Health, Boston, Massachusetts, United States of America"
-  - "$^2$Pediatric Infectious Disease Unit, Soroka University Medical Center, Beer-Sheva, Israel"
+  - "$^1$Center for Communicable Disease Dynamics, Harvard T.H. Chan School of Public Health, Boston, MA 02115, USA"
+  - "$^2$Faculty of Health Sciences, Ben-Gurion University of the Negev, Beer-Sheva 85025, Israel"
 date: '`r Sys.Date()`'
 output: 
   pdf_document:
@@ -40,7 +40,14 @@ Author Summary text % 150-200 word non-technical summary
 
 # Introduction
 
-\emph{Streptococcus pneumoniae} are gram-positive bacteria that can cause a number of serious illnesses including pneumonia, which is the leading cause of child mortality. While nasopharyngeal (NP) carriage does not usually lead to symptomatic infection, it serves as a precursor to disease and a potential source of transmission. Pneumococcal conjugate vaccines (PCV) were developed to target the capsid polysaccharides and reduce the rate of acquiring \emph{S. pneumoniae}. Currently, the vaccine contains the capsular polysaccharide antigen from the 13 serotypes that cause the majority of serious disease. 
+Invasive pneumococcal diseases are leading causes of morbidity and mortality especially among children under 5 years of age. The bacterium responsible for these diseases, \emph{Streptococcus pneumoniae}, can infect usually sterile sites in the body leading to serious diseases such as sepsis, meningitis, and pneumonia [@WorldHealthOrganization2015]. While there are many asymptomatic carriers of \emph{S. pneumoniae} in the nasopharynx, carriers can still transmit to others via respiratory secretions and nasopharyngeal carriage is a precursor to disease. The introduction of pneumococcal conjugate vaccines (PCV) reduced the rate of pneumococcal disease by providing protection against disease and against nasopharyngeal colonization, and indirectly protecting unvaccinated individuals through reduced rates of transmission.
+
+The first PCV targeted the 7 serotypes that were most commonly associated with invasive pneumococcal disease. Licensing of subsequent PCV vacines that target more serotypes has been based on data correlates of protection only due to practical and ethical considerations. Clinical trials take a long time and are expensive to run, and the existence of an effective vaccine made it unethical to assess new vaccines in placebo-controlled trials. In the case of the 7-valent PCV (PCV7), The correlate of protection against invasive pneumococcal disease caused by any serotype was found to be IgG antibody concentrations of at least 0.35 $\mu$g/mL for all 7 serotypes [@Jodar2003]. 
+
+
+
+The World Health Organization recommended that new versions of PCV should elicit IgG antibody concentrations of at least 0.35 $\mu$g/ml 1 month after vaccination, which was the threshold needed for protection against invasive pneumococcal disease  [@world2005recommendations]. 
+
 
 When the 13-valent PCV (PCV13) was first introduced, a vaccine trial was held in Israel to determine the effectiveness of PCV13 compared to the existing 7-valent PCV (PCV7) [@Dagan2013]. The endpoint of the trial was NP carriage after vaccination. However, many colonization events were yet to occur by the end of the two-year trial. This highlights a general difficulty in assessing vaccine efficacy as the clinical endpoint might not be observable for a long time.
 
@@ -49,6 +56,9 @@ There are many immunological biomarkers that correlate with the clinical endpoin
 Without accounting for within-host competitive exclusion, methods that calculate the relative rate for each individual serotype might under-estimate the vaccine efficacy. This is because PCV is more effective against colonization by some serotypes than others, which could lead to reduced competition and therefore increased prevalence of the serotypes against which PCV has less effect. Mehtälä et al. [-@Mehtala2016] presented a method to estimate the vaccine efficacy defined by the reduction in colonization rates using a model that accounts for competitive exclusion. The authors also fit a model of individual heterogeneity in terms of response to vaccination, and estimated the parameters from prevalence data.
 
 We build on the work of [@Mehtala2016] to directly predict individual responsiveness to vaccination using post-vaccination serum antibody levels instead of inferring the general shape of the distribution of responsiveness across the study population. In addition to testing on simulated data, we applied this inference framework to vaccine trial data from [@Dagan2013].
+
+A threshold of 0.35 $\mu$g/mL has been used to approve new PCV candidates. However, the level of protection conferred by 
+
 
 
 # Methods
@@ -72,7 +82,8 @@ We tested 2 models of how the vaccine-induced antibody levels were related to th
 1. Reduction in serotype-specific acquisition rate is predicted by serotype-specific antibody levels. The relationship is serotype-specific. $\lambda'_{ij} = f_j(A_{ij})\lambda_j$
 2. Reduction in serotype-specific acquisition rate is predicted by average antibody levels. The relationship is serotype-specific. $\lambda'_{ij} = f_j(A_i)\lambda_j$
 
-Model 2 could perform better than than first model if the error in antibody level measurement was high.
+
+Model 2 could perform better than than first model if the error in antibody level measurement was high. Also, when new serotypes are added to future vaccines, the average antibody levels could be used to predict the serotype-specific risks of colonization by the serotypes targetted by new vaccines.
 
 We further tested 2 predictive models of how log$_{10}$-transformed antibody level against serotype $j$ in individual $i$ was related to the rate of colonization (relative to unvaccinated rates) $\lambda_{ij}$:
 
@@ -82,6 +93,7 @@ We further tested 2 predictive models of how log$_{10}$-transformed antibody lev
         						a_j e^{b_j \textrm{log}_10(\textrm{IgG}_{ij})},&\textrm{for IgG}_{ij}>c_j\\
         						1,&\textrm{for IgG}_{ij} <=c_j
         						\end{cases}$$
+3. Logistic: $\lambda_{ij} = \frac{1}{1+ae^{b \cdot \textrm{log}_{10}(\textrm{IgG}_{ij})}}$
 
 ```{r MarkovTransitionModel, fig.align="center", out.width="300px", fig.cap=paste0("\\label{fig:model}Markov transition model of transmission process without vaccination.")}
 knitr::include_graphics("MarkovModel.pdf")
