@@ -24,6 +24,20 @@ void set_diag_as_negrowsum (arma::mat & rates) {
     }
 }
 
+double Param::transform(std::string transformation, double value, bool reverse=false) const {
+    if (transformation == "1") return (value);
+    if (transformation == "inv") return (1.0/value);
+    if (transformation == "log") {
+        if (reverse) return (exp(value));
+        return (std::log(value));
+    }
+    if (transformation == "log10") {
+        if (reverse) return (std::pow(10, value));
+        return (std::log10(value));
+    }
+    else return (value);
+}
+
 Param::Param() {}
 
 Param::Param (std::string param_file_name) {
@@ -49,9 +63,9 @@ Param::Param (std::string param_file_name) {
         params_names.push_back(temp_str);
         input >> temp_double;
         params.push_back(temp_double);
-        params_sd.push_back(std::abs(temp_double*0.5));
         input >> temp_str;
         params_trans.push_back(temp_str);
+        params_sd.push_back(std::abs(transform(temp_str, params.back())*0.5));
         input >> temp_double;
         params_min.push_back(temp_double);
         input >> temp_double;
@@ -126,20 +140,6 @@ void Param::print_params_to_screen() const {
         std::cout << params_prior1[i] << "\t";
         std::cout << params_prior2[i] << std::endl;
     }
-}
-
-double Param::transform(std::string transformation, double value, bool reverse=false) const {
-    if (transformation == "1") return (value);
-    if (transformation == "inv") return (1.0/value);
-    if (transformation == "log") {
-        if (reverse) return (exp(value));
-        return (std::log(value));
-    }
-    if (transformation == "log10") {
-        if (reverse) return (std::pow(10, value));
-        return (std::log10(value));
-    }
-    else return (value);
 }
 
 double Param::calc_lprior(bool print = false) {
