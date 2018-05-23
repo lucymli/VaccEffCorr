@@ -162,7 +162,7 @@ double Param::calc_lprior(bool print = false) {
 }
 
 void Param::propose() {
-    int ntries = 50;
+    int ntries = 1000;
     tempparam = params[param_index];
     double transformed_val = transform(params_trans[param_index], tempparam);
     double rnum = rnorm(transformed_val, params_sd[param_index], params_min[param_index], params_max[param_index], ntries);
