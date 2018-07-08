@@ -46,7 +46,11 @@ int main(int argc, const char * argv[]) {
             for (int pred_i=0; pred_i<npredictor; pred_i++) {
                 input >> num;
                 sim_data.set_predictor(ind_i, pred_i, num);
-                if (include_map==1) {
+            }
+        }
+        if (include_map==1) {
+            for (int ind_i=0; ind_i<nind; ind_i++) {
+                for (int pred_i=0; pred_i<npredictor; pred_i++) {
                     input >> intnum;
                     sim_data.set_predictor_index(ind_i, pred_i, intnum);
                 }
